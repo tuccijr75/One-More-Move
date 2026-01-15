@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>One More Move</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="hud">
+      <div class="title">One More Move</div>
+      <div class="score" id="score">
+        <span id="turns">Turns: 0</span>
+        <span id="best">Best: 0</span>
+        <span id="difficulty" class="difficulty">Difficulty: STANDARD</span>
+        <span id="seed" class="seed">Seed: 0</span>
+        <span id="mode" class="seed">Mode: RUN</span>
+        <span id="no-margin" class="no-margin">NO MARGIN</span>
+        <span id="status" class="status"></span>
+      </div>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="game" width="600" height="600" aria-label="One More Move"></canvas>
+      <div id="overlay" class="overlay hidden">
+        <div class="overlay-text">
+          <div id="final-turns">Turns Survived: 0</div>
+          <div id="death-cause" class="overlay-sub">Intercepted.</div>
+          <div id="final-seed" class="overlay-sub"></div>
+          <div id="final-mode" class="overlay-sub"></div>
+          <div class="overlay-sub">Press R to Restart</div>
+          <div class="overlay-sub">Press 1 Standard | 2 Hard | 3 Hardcore</div>
+        </div>
+      </div>
+    </div>
+    <div class="tips">
+      <span>Move: WASD / Arrows</span>
+      <span>Hold Space: Threat Forecast</span>
+      <span>Restart: R</span>
+      <span>Replay Seed: T</span>
+      <span>Daily Seed: D</span>
+      <span>Copy Seed: C</span>
+      <span>Mute: M</span>
+      <span>Quit: Q</span>
+      <span>Difficulty: 1 / 2 / 3</span>
+    </div>
+    <script src="game.js"></script>
+  </body>
+</html>
