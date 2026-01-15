@@ -1,0 +1,39 @@
+{
+  "name": "one-more-move",
+  "version": "1.0.0",
+  "description": "One More Move - deterministic grid survival game",
+  "author": "One More Move Team",
+  "main": "desktop/main.js",
+  "scripts": {
+    "dev": "electron .",
+    "sim": "node sim/sim.js",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^29.4.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.onemoremove.game",
+    "productName": "One More Move",
+    "asar": true,
+    "files": [
+      "app/**/*",
+      "desktop/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
