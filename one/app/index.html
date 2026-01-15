@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>One More Move</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="hud">
+      <div class="title">One More Move</div>
+      <div class="score">
+        <span id="turns">Turns: 0</span>
+        <span id="best">Best: 0</span>
+      </div>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="game" width="600" height="600" aria-label="One More Move"></canvas>
+      <div id="overlay" class="overlay hidden">
+        <div class="overlay-text">
+          <div id="final-turns">Turns Survived: 0</div>
+          <div class="overlay-sub">Press R to Restart</div>
+        </div>
+      </div>
+    </div>
+    <div class="tips">
+      <span>Move: WASD / Arrows</span>
+      <span>Hold Space: Threat Forecast</span>
+      <span>Restart: R</span>
+    </div>
+    <script src="game.js"></script>
+  </body>
+</html>
