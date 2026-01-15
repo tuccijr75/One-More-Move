@@ -4,8 +4,7 @@
   "description": "One More Move - deterministic grid survival game",
    "author": "One More Move Team",
 
- main
-  "main": "desktop/main.js",
+   "main": "desktop/main.js",
   "scripts": {
     "dev": "electron .",
     "sim": "node sim/sim.js",
@@ -21,7 +20,6 @@
     "electron": "^29.4.0"
   },
   "devDependencies": {
-main
     "electron-builder": "^24.13.3"
   },
   "build": {
@@ -29,7 +27,6 @@ main
     "productName": "One More Move",
     "asar": true,
 
-main
     "files": [
       "app/**/*",
       "desktop/**/*",
@@ -47,6 +44,5 @@ main
     }
 
     ]
-main
   }
 }
