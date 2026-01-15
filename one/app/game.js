@@ -2,51 +2,19 @@ const GRID_SIZE = 10;
 const CELL_SIZE = 60;
 const WALL_COUNT = 10;
 const INITIAL_ENEMIES = 2;
+const ESCAPE_PENALTY_WEIGHT = 1.5;
+const GAP_FILL_BONUS = 3.0;
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const turnsEl = document.getElementById("turns");
 const bestEl = document.getElementById("best");
-const difficultyEl = document.getElementById("difficulty");
-const scoreEl = document.getElementById("score");
 const overlayEl = document.getElementById("overlay");
 const finalTurnsEl = document.getElementById("final-turns");
 
 let rng = null;
 let state = null;
 let showForecast = false;
-let difficulty = "standard";
-const DIFFICULTY_CONFIG = {
-  standard: {
-    turnDelay: 150,
-    showIntentFlash: true,
-    showForecast: true,
-    escapePenalty: 1.5,
-    gapFillBonus: 3.0,
-    spawnFloor: 3,
-    dangerFeedback: true,
-  },
-  hard: {
-    turnDelay: 120,
-    showIntentFlash: true,
-    showForecast: true,
-    escapePenalty: 2.0,
-    gapFillBonus: 3.5,
-    spawnFloor: 3,
-    dangerFeedback: true,
-  },
-  hardcore: {
-    turnDelay: 80,
-    showIntentFlash: false,
-    showForecast: false,
-    escapePenalty: 2.5,
-    gapFillBonus: 4.0,
-    spawnFloor: 2,
-    dangerFeedback: false,
-  },
-};
-const INTENT_FLASH_MS = 100;
-const PULSE_DURATION_MS = 100;
 
 function mulberry32(seed) {
   return function () {
@@ -204,10 +172,6 @@ function initState() {
     best: Number(localStorage.getItem("one-more-move-best") || 0),
     nextSpawnTurn: 10,
     gameOver: false,
-    inputLocked: false,
-    intentFlashTiles: null,
-    pulseUntil: 0,
-    lastEscapeOptions: null,
   };
 
   for (let i = 0; i < INITIAL_ENEMIES; i += 1) {
@@ -219,23 +183,9 @@ function initState() {
   render();
 }
 
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function setDifficulty(nextDifficulty) {
-  difficulty = nextDifficulty;
-  if (!DIFFICULTY_CONFIG[difficulty].showForecast) {
-    showForecast = false;
-  }
-  updateHud();
-  render();
-}
-
 function updateHud() {
   turnsEl.textContent = `Turns: ${state.turns}`;
   bestEl.textContent = `Best: ${state.best}`;
-  difficultyEl.textContent = `Difficulty: ${difficulty.toUpperCase()}`;
 }
 
 function countPlayerEscapeOptions(enemyPositions) {
@@ -263,7 +213,7 @@ function scoreEnemyMove(enemyIndex, target) {
 
   const distanceScore = -manhattan(target, state.player);
   const escapeOptions = countPlayerEscapeOptions(enemyPositions);
-  const escapePenalty = DIFFICULTY_CONFIG[difficulty].escapePenalty * escapeOptions;
+  const escapePenalty = ESCAPE_PENALTY_WEIGHT * escapeOptions;
 
   let gapBonus = 0;
   const isAdjacentToPlayer = manhattan(target, state.player) === 1;
@@ -273,7 +223,7 @@ function scoreEnemyMove(enemyIndex, target) {
     !state.enemies.some((enemy, index) => index !== enemyIndex && posKey(enemy) === targetKey) &&
     !(state.player.x === target.x && state.player.y === target.y);
   if (isAdjacentToPlayer && isBlank) {
-    gapBonus = DIFFICULTY_CONFIG[difficulty].gapFillBonus;
+    gapBonus = GAP_FILL_BONUS;
   }
 
   return distanceScore - escapePenalty + gapBonus;
@@ -346,46 +296,34 @@ function computeEnemyPlans() {
   return finalPositions;
 }
 
-function triggerDangerPulse() {
-  if (!DIFFICULTY_CONFIG[difficulty].dangerFeedback) {
-    return;
-  }
-  scoreEl.classList.remove("danger-pulse");
-  void scoreEl.offsetWidth;
-  scoreEl.classList.add("danger-pulse");
+function playerHasMoves() {
+  const enemyPositions = new Set(state.enemies.map(posKey));
+  return getNeighbors(state.player).some((tile) => {
+    if (!inBounds(tile.x, tile.y)) {
+      return false;
+    }
+    const key = posKey(tile);
+    if (state.walls.has(key)) {
+      return false;
+    }
+    if (enemyPositions.has(key)) {
+      return false;
+    }
+    return true;
+  });
 }
 
-async function resolveTurnAsync() {
-  state.inputLocked = true;
-  await delay(DIFFICULTY_CONFIG[difficulty].turnDelay);
-
+function resolveTurn() {
   const plannedPositions = computeEnemyPlans();
-  if (DIFFICULTY_CONFIG[difficulty].showIntentFlash) {
-    state.intentFlashTiles = plannedPositions;
-    render();
-    await delay(INTENT_FLASH_MS);
-    state.intentFlashTiles = null;
-  }
-
   state.enemies = plannedPositions;
+
   if (state.enemies.some((enemy) => enemy.x === state.player.x && enemy.y === state.player.y)) {
     endGame();
-    state.inputLocked = false;
     return;
   }
 
-  const escapeOptions = countPlayerEscapeOptions(new Set(state.enemies.map(posKey)));
-  if (DIFFICULTY_CONFIG[difficulty].dangerFeedback) {
-    const lastOptions = state.lastEscapeOptions ?? escapeOptions;
-    if (escapeOptions === 1 && lastOptions >= 2) {
-      triggerDangerPulse();
-    }
-    state.lastEscapeOptions = escapeOptions;
-  }
-
-  if (escapeOptions === 0) {
+  if (!playerHasMoves()) {
     endGame();
-    state.inputLocked = false;
     return;
   }
 
@@ -397,20 +335,12 @@ async function resolveTurnAsync() {
 
   if (state.turns >= state.nextSpawnTurn) {
     spawnEnemy();
-    const interval = Math.max(
-      DIFFICULTY_CONFIG[difficulty].spawnFloor,
-      Math.floor(10 - state.turns / 15)
-    );
+    const interval = Math.max(3, Math.floor(10 - state.turns / 15));
     state.nextSpawnTurn += interval;
   }
 
   updateHud();
-  state.pulseUntil = performance.now() + PULSE_DURATION_MS;
   render();
-  setTimeout(() => {
-    render();
-  }, PULSE_DURATION_MS);
-  state.inputLocked = false;
 }
 
 function endGame() {
@@ -422,7 +352,7 @@ function endGame() {
 }
 
 function attemptMove(dx, dy) {
-  if (state.gameOver || state.inputLocked) {
+  if (state.gameOver) {
     return;
   }
 
@@ -440,9 +370,7 @@ function attemptMove(dx, dy) {
     return;
   }
 
-  state.lastEscapeOptions = countPlayerEscapeOptions(new Set(state.enemies.map(posKey)));
-  render();
-  resolveTurnAsync();
+  resolveTurn();
 }
 
 function handleKeyDown(event) {
@@ -451,24 +379,11 @@ function handleKeyDown(event) {
     event.preventDefault();
   }
 
-  if ((state.gameOver || state.turns === 0) && ["1", "2", "3"].includes(key)) {
-    if (key === "1") {
-      setDifficulty("standard");
-    }
-    if (key === "2") {
-      setDifficulty("hard");
-    }
-    if (key === "3") {
-      setDifficulty("hardcore");
-    }
-    return;
-  }
-
   if (key === "r") {
     initState();
     return;
   }
-  if (event.key === " " && DIFFICULTY_CONFIG[difficulty].showForecast) {
+  if (event.key === " ") {
     showForecast = true;
     render();
     return;
@@ -531,20 +446,6 @@ function drawSquares(positions, color, alpha = 1) {
   ctx.globalAlpha = 1;
 }
 
-function drawPlayer() {
-  const now = performance.now();
-  const scale = now < state.pulseUntil ? 0.9 : 1;
-  const size = (CELL_SIZE - 8) * scale;
-  const offset = (CELL_SIZE - size) / 2;
-  ctx.fillStyle = "#3a7bd5";
-  ctx.fillRect(
-    state.player.x * CELL_SIZE + 4 + offset,
-    state.player.y * CELL_SIZE + 4 + offset,
-    size,
-    size
-  );
-}
-
 function render() {
   drawGrid();
 
@@ -554,13 +455,10 @@ function render() {
   });
 
   drawSquares(wallPositions, "#5a5a5a");
-  if (state.intentFlashTiles && DIFFICULTY_CONFIG[difficulty].showIntentFlash) {
-    drawSquares(state.intentFlashTiles, "rgba(200,50,50,0.25)");
-  }
   drawSquares(state.enemies, "#d63c3c");
-  drawPlayer();
+  drawSquares([state.player], "#3a7bd5");
 
-  if (showForecast && !state.gameOver && DIFFICULTY_CONFIG[difficulty].showForecast) {
+  if (showForecast && !state.gameOver) {
     const planned = computeEnemyPlans();
     drawSquares(planned, "#ff4d4d", 0.35);
   }
