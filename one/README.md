@@ -28,11 +28,6 @@ npm run build:mac
 npm run build:linux
 ```
 
-### Windows Installer Output
-
-- `npm run build:win` produces an NSIS installer (`.exe`) under `dist/`.
-- The installer bundles all runtime dependencies; no separate Node/Electron install is required.
-
 ## Controls
 
 - Move: Arrow keys or WASD
