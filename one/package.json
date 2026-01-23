@@ -1,45 +1,47 @@
 {
   "name": "one-more-move",
-  "version": "1.0.0",
-  "description": "One More Move - deterministic grid survival game",
-   "author": "One More Move Team",
-
-   "main": "desktop/main.js",
+  "version": "0.1.0",
+  "description": "A brutal, turn-based grid survival game.",
+  "author": "Michael Robertucci",
+  "private": true,
+  "main": "desktop/main.js",
   "scripts": {
     "dev": "electron .",
     "sim": "node sim/sim.js",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux"
-  },
-  "dependencies": {},
-  "devDependencies": {
-    "electron": "^29.4.0",
-
-  "dependencies": {
-    "electron": "^29.4.0"
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder"
   },
   "devDependencies": {
-    "electron-builder": "^24.13.3"
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1"
   },
   "build": {
-    "appId": "com.onemoremove.game",
+    "appId": "com.onemorem.one",
     "productName": "One More Move",
-    "asar": true,
-
+    "directories": {
+      "output": "dist"
+    },
     "files": [
       "app/**/*",
-      "desktop/**/*",
-      "package.json"
+      "desktop/**/*"
     ],
+    "mac": {
+      "category": "public.app-category.games",
+      "target": [
+        "dmg"
+      ]
+    },
     "win": {
       "target": [
         "nsis"
       ]
     },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true
+    "linux": {
+      "target": [
+        "AppImage"
+      ]
     }
+  }
 }

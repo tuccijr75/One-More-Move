@@ -26,18 +26,44 @@ npm run sim
 npm run build:win
 npm run build:mac
 npm run build:linux
+npm run build:all
 ```
+
+### Windows Installer Output
+
+- `npm run build:win` produces an NSIS installer (`.exe`) under `dist/`.
+- The installer bundles all runtime dependencies; no separate Node/Electron install is required.
+
+### Windows Build Troubleshooting
+
+If `npm run build:win` fails with `Cannot create symbolic link` while extracting `winCodeSign`, enable Windows Developer Mode or run the terminal as Administrator, then retry the build.
 
 ## Controls
 
 - Move: Arrow keys or WASD
-- Threat forecast overlay: Hold Space
+- Threat forecast overlay: Hold Space (disabled in Hardcore)
 - Restart: R
+- Replay seed: T
+- Toggle daily seed: D
+- Copy seed: C
+- Difficulty: 1 (Standard), 2 (Hard), 3 (Hardcore)
+- Quit: Q (desktop only)
+- Mute: M
 
-## Steam Packaging Note
+## Steam Readiness Checklist
 
-- Set the launch executable correctly in Steamworks (point to the built app executable).
-- Test a fresh install using a Steam branch to confirm packaging behavior.
+- Correct executable set in Steamworks
+- Fresh install test
+- DPI scaling test
+- Input focus test
+
+## Icons
+
+Electron Builder expects icons under `build/` (do not commit binaries to git):
+
+- `build/icon.ico` (Windows)
+- `build/icon.icns` (macOS)
+- `build/icon.png` (Linux)
 
 ## Manual Acceptance Checklist
 
