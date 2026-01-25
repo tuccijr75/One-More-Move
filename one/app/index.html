@@ -9,8 +9,11 @@
   </head>
   <body>
     <div id="hud" class="hud">
-  <div class="hud-left">
-    <div class="hud-title">ONE MORE MOVE</div>
+     <div class="hud-left">
+      <div class="hud-title">
+        ONE MORE<br />
+        MOVE
+      </div>
   </div>
 
   <div class="hud-center">
@@ -44,7 +47,8 @@
 
     <div class="canvas-wrap">
       <canvas id="game" width="600" height="600" tabindex="0" role="application" aria-label="One More Move"></canvas>
-      
+</div>
+     
       <div id="stage-banner" class="stage-banner hidden" aria-live="polite">STAGE 1</div>
 
       <div id="overlay" class="overlay hidden">
@@ -146,19 +150,102 @@
       </div>
     </div>
 
-      <div class="tips">
-      <span>Move: WASD / Arrows</span>
-      <span>Hold Space: Time Freeze (2 moves)</span>
-      <span>Restart: R</span>
-      <span>Daily Seed: Y</span>
-      <span>Input Seed: M</span>
-      <span>Difficulty: 1 / 2 / 3</span>
-      <span>Settings: X</span>
-      <span>Phase Step: F (once)</span>
-      <span>Wall Ignore: V</span>
-      <span>Diagonal Step: Q E Z C</span>
-      <span>Freeze Turn: B</span>
+     <div class="tips">
+
+  <!-- MOVEMENT -->
+  <div class="tips-group">
+    <div class="tips-head">Movement</div>
+
+    <div class="tips-line">
+      <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span>
     </div>
+
+    <div class="tips-line">
+      <span class="tips-dim">Arrows</span>
+    </div>
+  </div>
+
+  <!-- SPECIALS / FOCUS -->
+  <div class="tips-group">
+    <div class="tips-head">Focus</div>
+
+    <div class="tips-line">
+      <span class="tips-label">Time Freeze:</span>
+      <span class="key wide">SPACE</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Phase Step:</span>
+      <span class="key">F</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Wall Ignore:</span>
+      <span class="key">V</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Diagonal:</span>
+      <span class="key">Q</span><span class="key">E</span><span class="key">Z</span><span class="key">C</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Freeze Turn:</span>
+      <span class="key">B</span>
+    </div>
+  </div>
+
+  <!-- DIFFICULTY / SETTINGS -->
+  <div class="tips-group">
+    <div class="tips-head">Difficulty</div>
+
+    <div class="tips-line">
+      <span class="tips-label">Standard</span>
+      <span class="key">1</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Hard</span>
+      <span class="key">2</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Hardcore</span>
+      <span class="key">3</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Settings:</span>
+      <span class="key">X</span>
+    </div>
+  </div>
+
+  <!-- STAGE SET -->
+  <div class="tips-group">
+    <div class="tips-head">Stage Set</div>
+
+    <div class="tips-line">
+      <span class="tips-label">New:</span>
+      <span class="key">N</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Restart:</span>
+      <span class="key">R</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Daily Seed:</span>
+      <span class="key">Y</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Input Seed:</span>
+      <span class="key">M</span>
+    </div>
+  </div>
+
+</div>
 
     <script src="game.js"></script>
   </body>

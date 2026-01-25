@@ -1,12 +1,11 @@
 /* =========================
    SETTINGS (versioned)
 ========================= */
-
-const SETTINGS_VERSION = 1;
-
 function tuningKey() {
   return `one-more-move-tuning-v${SETTINGS_VERSION}`;
 }
+
+const SETTINGS_VERSION = 1;
 
 // In-memory storage replacement
 const memoryStore = {
@@ -525,6 +524,10 @@ function relocateWallsOnStageAdvance() {
 /* =========================
    STAGES & PORTAL
 ========================= */
+function computeNextPortalTurn(stage, currentTurn) {
+  return currentTurn + 15;
+}
+
 function spawnPortalIfNeeded() {
   if (state.portal) return;
   if (state.turns < state.nextPortalAtTurn) return;
@@ -549,6 +552,14 @@ function spawnPortalIfNeeded() {
   state.portal = candidates[randInt(candidates.length)];
 }
 
+function enemyCountForStage(stage) {
+  if (stage <= 5) return 2;
+  if (stage <= 10) return 3;
+  if (stage <= 15) return 4;
+  if (stage <= 20) return 5;
+  return 6; // hard cap for this release
+}
+
 function advanceStage() {
   startStageTransitionFx();     // spin + dissolve on the player tile
   state.stage++;
@@ -558,7 +569,7 @@ function advanceStage() {
   state.portal = null;
 
   // Compute next portal timing
-  state.nextPortalAtTurn += 15;
+  state.nextPortalAtTurn = computeNextPortalTurn(state.stage, state.turns);
 
   relocateWallsOnStageAdvance();
 
@@ -567,26 +578,26 @@ function advanceStage() {
     state.hasExtraLife = true;
   }
 
+  // Reset enemies for new stage (stage identity)
+  state.enemies = [];
+  const targetEnemies = enemyCountForStage(state.stage);
+  for (let i = 0; i < targetEnemies; i++) {
+    spawnEnemy();
+  }
+
+  // Reset spawn pacing for the new stage
+  state.nextSpawnTurn = Math.max(1, stateSpawnInitial);
+
   // Recompute difficulty scaling
   recomputeEffectiveConfig();
 
   updateHud();
+
 }
 
 /* =========================
    WALLS / SPAWN
 ========================= */
-function buildWalls() {
-  const walls = new Set();
-  while (walls.size < WALL_COUNT) {
-    const x = randInt(GRID_SIZE);
-    const y = randInt(GRID_SIZE);
-    if (x === 5 && y === 5) continue;
-    walls.add(`${x},${y}`);
-  }
-  return walls;
-}
-
 function isEdgeTile(pos) {
   return pos.x === 0 || pos.x === GRID_SIZE - 1 || pos.y === 0 || pos.y === GRID_SIZE - 1;
 }
@@ -604,7 +615,7 @@ function getSafeSpawnTiles() {
       // Forced-loss rejection: do not allow a spawn that immediately removes all escape options
       const hypothetical = new Set(enemyKeys);
       hypothetical.add(key);
-      if (!countPlayerEscapeOptions(hypothetical)) continue;
+      if (countPlayerEscapeOptions(hypothetical) < 2) continue;
 
       tiles.push({ x, y });
 
@@ -700,18 +711,35 @@ function bestKey(seedMode) {
 }
 
 function updateHud() {
-  turnsEl.textContent = `Turns: ${state.turns}`;
-  bestEl.textContent = `Best: ${state.best}`;
-  difficultyEl.textContent = `Difficulty: ${difficulty.toUpperCase()}`;
-  seedEl.textContent = `Seed: ${state.seed}`;
-  modeEl.textContent = `Mode: ${state.seedMode}`;
-  stageEl.textContent = `Stage: ${state.stage}`;
+  // These spans are "numbers only" (labels already exist in HTML)
+  turnsEl.textContent = state.turns;
+  bestEl.textContent  = state.best;
+  stageEl.textContent = state.stage;
 
-const focusEl = document.getElementById("focus");
+  // Center HUD items should stay short (no prefixes)
+  difficultyEl.textContent = difficulty.toUpperCase();
+  seedEl.textContent       = `Seed ${state.seed}`;
+  modeEl.textContent       = String(state.seedMode || "RUN").toUpperCase();
+
+  // Focus: Diagonal token, Wall token, Phase Step availability, Freeze Turn token, Time Freeze (Space) moves
+  const focusEl = document.getElementById("focus");
 if (focusEl) {
-  focusEl.textContent =
-    `D${state.tokens.diag} W${state.tokens.wall} F${state.tokens.freeze}` +
-    (state.phaseUsed ? "" : " ●");
+  const D = state.tokens?.diag ?? 0;          // Diagonal token
+  const W = state.tokens?.wall ?? 0;          // Wall Ignore token
+  const F = state.phaseUsed ? 0 : 1;          // Phase Step ready (1) vs used (0)
+  const B = state.tokens?.freeze ?? 0;        // Freeze Turn token (B)
+
+  const holding = !!state.holdSpace;
+  const tfReady = state.tokens?.timeFreeze ?? 0;
+  const TF = holding ? (state.holdMovesLeft ?? 0) : (tfReady ? 2 : 0);
+
+  focusEl.innerHTML = `
+    <span class="f-item">D <span class="f-val">${D}</span></span>
+    <span class="f-item">W <span class="f-val">${W}</span></span>
+    <span class="f-item">F <span class="f-val">${F}</span></span>
+    <span class="f-item">B <span class="f-val">${B}</span></span>
+    <span class="f-item tf ${holding ? "" : "is-off"}">TF <span class="f-val">${TF}</span></span>
+  `;
   }
 }
 
@@ -1052,24 +1080,35 @@ if (state.freezeNext) {
 
   onTurnAdvanced();
 
-  // Turn economy relief valves: every 12 turns grant a token (D -> W -> F cycle)
-  
-  if (state.turns % 12 === 0) {
-    const phase = Math.floor(state.turns / 12) % 3;
-    if (phase === 0 && state.tokens.diag === 0) state.tokens.diag = 1;
-    if (phase === 1 && state.tokens.wall === 0) state.tokens.wall = 1;
-    if (phase === 2 && state.tokens.freeze === 0) state.tokens.freeze = 1;
-  }
+  // Turn economy relief valves: every 12 turns grant a token (D -> W -> B cycle)
+if (state.turns % 12 === 0) {
+  const phase = Math.floor(state.turns / 12) % 3;
+  if (phase === 0 && state.tokens.diag === 0) state.tokens.diag = 1;
+  if (phase === 1 && state.tokens.wall === 0) state.tokens.wall = 1;
+  if (phase === 2 && state.tokens.freeze === 0) state.tokens.freeze = 1;
+}
+
+// ✅ Time Freeze earns every 50 turns (max 1 owned)
+if (state.turns % 50 === 0 && (state.tokens.timeFreeze ?? 0) === 0) {
+  state.tokens.timeFreeze = 1;
+}
 
   if (state.turns > state.best) {
     state.best = state.turns;
     memoryStore.bestScores[bestKey(state.seedMode)] = state.best;
   }
 
-  // spawn pacing
   if (state.turns >= state.nextSpawnTurn) {
-    spawnEnemy();
-    const interval = Math.max(cfg.spawnFloor, Math.floor(stateRampSpeed - state.turns / stateRampSpeed));
+    const cap = enemyCountForStage(state.stage);
+
+    if (state.enemies.length < cap) {
+      spawnEnemy();
+    }
+
+    const interval = Math.max(
+      cfg.spawnFloor,
+      Math.floor(stateRampSpeed - state.turns / stateRampSpeed)
+    );
     state.nextSpawnTurn += interval;
   }
 
@@ -1553,7 +1592,7 @@ if (key === "y") {
   // Reward cooldown feedback (only for reward-related keys)
   if (
     now < state.rewardCooldownUntil &&
-    ["q","e","z","c","v","b","f"].includes(key)
+    ["q","e","z","c","v","b","f", " "].includes(key)
   ) {
     showCooldownStatus(now);
     return;
@@ -1601,6 +1640,7 @@ if (
   return;
 }
 
+if (e.key === " " && e.repeat) return;
 if (
   key === "b" && 
   state.tokens.freeze > 0 && 
@@ -1643,15 +1683,26 @@ if (
   if (key === "a" || key === "arrowleft") return attemptMove(-1, 0);
   if (key === "d" || key === "arrowright") return attemptMove(1, 0);
 
-  if (e.key === " ") {
-    
-    // Start “hold space” mode (freeze enemies, allow up to 2 moves)
-    state.holdSpace = true;
-    state.holdMovesLeft = 2;
-    state.holdStepsUsed = 0;
+ if (e.key === " ") {
+  if (e.repeat) return;                 // ✅ EXACT placement (prevents reset spam)
+  if (state.holdSpace) return;          // already active
+  if ((state.tokens.timeFreeze ?? 0) <= 0) return; // must be earned
 
-    return;
-  }
+  // Consume the earned Time Freeze
+  state.tokens.timeFreeze = 0;
+
+  // Respect global reward cooldown
+  state.rewardCooldownUntil = now + 30000;
+
+  // Start “hold space” mode (freeze enemies, allow up to 2 moves)
+  state.holdSpace = true;
+  state.holdMovesLeft = 2;
+  state.holdStepsUsed = 0;
+
+  updateHud(); // show TF immediately
+  return;
+ }
+
 }
 
 function handleKeyUp(e) {
@@ -1676,6 +1727,8 @@ function handleKeyUp(e) {
  
       state.holdMovesLeft = 2;
       state.holdStepsUsed = 0;
+
+      updateHud();
     }
 
   }
@@ -1745,48 +1798,48 @@ function initState({ seed, seedMode }) {
   rng = mulberry32(seed);
 
   state = {
-    player: { x: 5, y: 5 },
-    walls: buildWalls(),
-    enemies: [],
-    turns: 0,
-    best: Number(memoryStore.bestScores[bestKey(seedMode)] || 0),
-    nextSpawnTurn: Math.max(1, stateSpawnInitial),
-    gameOver: false,
-    inputLocked: false,
-    holdSpace: false,
-    holdMovesLeft: 2,
-    holdStepsUsed: 0,
-    playerTrail: [],
-    stage: 1,
-    portal: null, // { x, y } when active
-    nextPortalAtTurn: 15,
-    hasExtraLife: false,
-    rewardCooldownUntil: 0,
-    // Phase Step (single-use)
-    phaseUsed: false,
-    phaseArmed: false,
-    tokens: { diag: 0, wall: 0, freeze: 0 },
-    freezeNext: false,
-    wallIgnoreArmed: false,
-    payingDebt: false,
-    turnDebt: 0,
-    seed,
-    seedMode,
-    effects: {
-      intentTiles: null,
-      freezeUntil: 0,
-      killer: null,
-      lastEnemyTurn: -1,
-      stageFx: null,          // { startMs, durationMs, x, y }
-      stageBannerUntil: 0,    // timestamp ms
-      statusUntil: performance.now() + STATUS_MS,
-      statusText:
-        seedMode === "NEW" ? "NEW SEED" :
-        seedMode === "REPLAY" ? "REPLAYING SEED" : "",
-    },
+  player: { x: 5, y: 5 },
+  walls: new Set(),          // temporary, immediately replaced
+  enemies: [],
+  turns: 0,
+  best: Number(memoryStore.bestScores[bestKey(seedMode)] || 0),
+  nextSpawnTurn: Math.max(1, stateSpawnInitial),
+  gameOver: false,
+  inputLocked: false,
+  holdSpace: false,
+  holdMovesLeft: 2,
+  holdStepsUsed: 0,
+  playerTrail: [],
+  stage: 1,
+  portal: null,
+  nextPortalAtTurn: computeNextPortalTurn(1, 0),
+  hasExtraLife: false,
+  rewardCooldownUntil: 0,
+  phaseUsed: false,
+  phaseArmed: false,
+  tokens: { diag: 0, wall: 0, freeze: 0, timeFreeze: 0 },
+  freezeNext: false,
+  wallIgnoreArmed: false,
+  payingDebt: false,
+  turnDebt: 0,
+  seed,
+  seedMode,
+  effects: {
+    intentTiles: null,
+    freezeUntil: 0,
+    killer: null,
+    lastEnemyTurn: -1,
+    stageFx: null,
+    stageBannerUntil: 0,
+    statusUntil: 0,
+    statusText:
+      seedMode === "NEW" ? "NEW SEED" :
+      seedMode === "REPLAY" ? "REPLAYING SEED" : "",
+  },
+};
   
-   };
-  
+  state.walls = buildWallsCount(WALL_COUNT);
+
   const spawnCount = Math.max(0, Math.min(INITIAL_ENEMIES, GRID_SIZE * 2));
     for (let i = 0; i < spawnCount; i++) spawnEnemy();
     

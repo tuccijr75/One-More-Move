@@ -1,0 +1,23 @@
+{
+  "name": "one-more-move",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tuccijr75/One-More-Move.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/tuccijr75/One-More-Move/issues"
+  },
+  "homepage": "https://github.com/tuccijr75/One-More-Move#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.58.0",
+    "@types/node": "^25.0.10"
+  }
+}
