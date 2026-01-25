@@ -3,6 +3,10 @@ node_modules/
 dist/
 build/
 out/
+one/
+tests/
+package.json
+package-lock.json
 
 # Electron builder artifacts
 *.exe
@@ -22,7 +26,6 @@ yarn-debug.log*
 # OS junk
 .DS_Store
 Thumbs.db
-
 
 # Playwright
 node_modules/
