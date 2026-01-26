@@ -1,0 +1,44 @@
+{
+  "name": "one-more-move",
+  "version": "1.0.0",
+  "description": "A tactical survival puzzle game where every move matters.",
+  "author": "Michael Robertucci",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "build": {
+    "appId": "com.tucci.onemoremove",
+    "productName": "One More Move",
+    "files": [
+      "app/**/*",
+      "main.js",
+      "preload.js"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "app/assets/icon.png"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "app/assets/icon.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Game",
+      "icon": "app/assets/icon.png"
+    }
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.0.0"
+  }
+}
