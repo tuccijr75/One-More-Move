@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>One More Move</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="hud" class="hud">
+     <div class="hud-left">
+      <div class="hud-title">
+        ONE MORE<br />
+        MOVE
+      </div>
+  </div>
+
+  <div class="hud-center">
+    <div id="difficulty" class="hud-meta">STANDARD</div>
+    <div id="seed" class="hud-meta">Seed 0</div>
+    <div id="mode" class="hud-meta">RUN</div>
+  </div>
+
+  <div class="hud-right">
+    <div class="hud-stat">
+      <span class="hud-label">Turns</span>
+      <span id="turns" class="hud-number">0</span>
+    </div>
+
+    <div class="hud-stat">
+      <span class="hud-label">Best</span>
+      <span id="best" class="hud-number">0</span>
+    </div>
+
+    <div class="hud-stat">
+    <span class="hud-label">Stage</span>
+    <span id="stage" class="hud-number">1</span>
+  </div>
+
+    <div class="hud-stat">
+     <span class="hud-label">Focus</span>
+     <span id="focus" class="hud-number">0</span>
+    </div>
+  </div>
+</div>
+
+    <div class="canvas-wrap">
+      <canvas id="game" width="600" height="600" tabindex="0" role="application" aria-label="One More Move"></canvas>
+</div>
+     
+      <div id="stage-banner" class="stage-banner hidden" aria-live="polite">STAGE 1</div>
+
+      <div id="overlay" class="overlay hidden">
+        <div class="overlay-text">
+          <div id="final-turns">Turns Survived: 0</div>
+          <div id="death-cause" class="overlay-sub">Intercepted.</div>
+          <div id="final-seed" class="overlay-sub"></div>
+          <div id="final-mode" class="overlay-sub"></div>
+          <div class="overlay-sub">Press R to Restart</div>
+          <div class="overlay-sub">Hold Space to Freeze Enemies (2 moves)</div>
+          <div class="overlay-sub">Press 1 Standard | 2 Hard | 3 Hardcore</div>
+          <div class="overlay-sub">Press X for Settings</div>
+        </div>
+      </div>
+
+      <!-- SETTINGS MODAL -->
+      <div id="settings" class="settings hidden" aria-hidden="true">
+        <div class="settings-card">
+          <div class="settings-top">
+            <button id="settings-back" class="icon-btn" aria-label="Back">←</button>
+            <div class="settings-title">SETTINGS</div>
+            <div class="settings-spacer"></div>
+          </div>
+
+          <div class="settings-body">
+            <div class="settings-section">
+              <div class="settings-h">Difficulty Profile</div>
+              <div class="settings-row">
+                <div class="settings-label">Editing</div>
+                <div class="settings-value" id="settings-profile">STANDARD</div>
+              </div>
+              <div class="settings-sub">
+                Changes are saved per difficulty and apply to the next game.
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <div class="settings-h">Initial Enemies</div>
+              <div class="settings-row">
+                <input id="set-initialEnemies" class="slider" type="range" min="1" max="6" step="1" />
+                <input id="set-initialEnemiesNum" class="num" type="number" min="1" max="6" step="1" />
+              </div>
+              <div class="settings-sub">Starting number of enemies on the board</div>
+            </div>
+
+            <div class="settings-section">
+              <div class="settings-h">Wall Count</div>
+              <div class="settings-row">
+                <input id="set-wallCount" class="slider" type="range" min="0" max="30" step="1" />
+                <input id="set-wallCountNum" class="num" type="number" min="0" max="30" step="1" />
+              </div>
+              <div class="settings-sub">Number of obstacle walls on the grid</div>
+            </div>
+
+            <div class="settings-section">
+              <div class="settings-h">Initial Spawn Interval</div>
+              <div class="settings-row">
+                <input id="set-initialSpawn" class="slider" type="range" min="3" max="15" step="1" />
+                <input id="set-initialSpawnNum" class="num" type="number" min="3" max="15" step="1" />
+              </div>
+              <div class="settings-sub">Turns until first enemy spawn</div>
+            </div>
+
+            <div class="settings-section">
+              <div class="settings-h">Spawn Ramp Speed</div>
+              <div class="settings-row">
+                <input id="set-rampSpeed" class="slider" type="range" min="5" max="30" step="1" />
+                <input id="set-rampSpeedNum" class="num" type="number" min="5" max="30" step="1" />
+              </div>
+              <div class="settings-sub">Higher = slower difficulty increase</div>
+            </div>
+
+            <div class="settings-section">
+              <div class="settings-h">AI Behavior</div>
+
+              <div class="settings-h2">Escape Penalty Weight</div>
+              <div class="settings-row">
+                <input id="set-escapePenalty" class="slider" type="range" min="0.5" max="4.0" step="0.1" />
+                <input id="set-escapePenaltyNum" class="num" type="number" min="0.5" max="4.0" step="0.1" />
+              </div>
+              <div class="settings-sub">Higher = enemies prioritize blocking exits more</div>
+
+              <div class="settings-h2">Gap Fill Bonus</div>
+              <div class="settings-row">
+                <input id="set-gapFill" class="slider" type="range" min="0.0" max="6.0" step="0.1" />
+                <input id="set-gapFillNum" class="num" type="number" min="0.0" max="6.0" step="0.1" />
+              </div>
+              <div class="settings-sub">Higher = enemies more aggressively close gaps</div>
+            </div>
+          </div>
+
+          <div class="settings-actions">
+            <button id="settings-save" class="btn primary">Save Settings</button>
+            <button id="settings-reset" class="btn">Reset to Defaults</button>
+          </div>
+
+          <div class="settings-foot">Changes apply to the next game.</div>
+        </div>
+      </div>
+    </div>
+
+     <div class="tips">
+
+  <!-- MOVEMENT -->
+  <div class="tips-group">
+    <div class="tips-head">Movement</div>
+
+    <div class="tips-line">
+      <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-dim">Arrows</span>
+    </div>
+  </div>
+
+  <!-- SPECIALS / FOCUS -->
+  <div class="tips-group">
+    <div class="tips-head">Focus</div>
+
+    <div class="tips-line">
+      <span class="tips-label">Time Freeze:</span>
+      <span class="key wide">SPACE</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Phase Step:</span>
+      <span class="key">F</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Wall Ignore:</span>
+      <span class="key">V</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Diagonal:</span>
+      <span class="key">Q</span><span class="key">E</span><span class="key">Z</span><span class="key">C</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Freeze Turn:</span>
+      <span class="key">B</span>
+    </div>
+  </div>
+
+  <!-- DIFFICULTY / SETTINGS -->
+  <div class="tips-group">
+    <div class="tips-head">Difficulty</div>
+
+    <div class="tips-line">
+      <span class="tips-label">Standard</span>
+      <span class="key">1</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Hard</span>
+      <span class="key">2</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Hardcore</span>
+      <span class="key">3</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Settings:</span>
+      <span class="key">X</span>
+    </div>
+  </div>
+
+  <!-- STAGE SET -->
+  <div class="tips-group">
+    <div class="tips-head">Stage Set</div>
+
+    <div class="tips-line">
+      <span class="tips-label">New:</span>
+      <span class="key">N</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Restart:</span>
+      <span class="key">R</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Daily Seed:</span>
+      <span class="key">Y</span>
+    </div>
+
+    <div class="tips-line">
+      <span class="tips-label">Input Seed:</span>
+      <span class="key">M</span>
+    </div>
+  </div>
+
+</div>
+
+    <script src="game.js"></script>
+  </body>
+</html>
+
