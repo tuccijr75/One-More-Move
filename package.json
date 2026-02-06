@@ -6,7 +6,10 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "cap:sync": "npx cap sync",
+    "ios:open": "npx cap open ios",
+    "ios:run": "npx cap run ios"
   },
   "build": {
     "appId": "com.tucci.onemoremove",
@@ -37,7 +40,12 @@
       "icon": "app/assets/icon.png"
     }
   },
+  "dependencies": {
+    "@capacitor/core": "^6.0.0"
+  },
   "devDependencies": {
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/ios": "^6.0.0",
     "electron": "^30.0.0",
     "electron-builder": "^24.0.0"
   }
