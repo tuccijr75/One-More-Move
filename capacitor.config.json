@@ -1,0 +1,6 @@
+{
+  "appId": "com.tucci.onemoremove",
+  "appName": "One More Move",
+  "webDir": "app/ios",
+  "bundledWebRuntime": false
+}
