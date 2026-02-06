@@ -6,4 +6,3 @@
 
 Notes:
 - iOS now uses a non-obfuscated `game.js` at `app/ios/game.js`.
-- Platform asset folders use symlinks that point back to `app/assets/*` to avoid duplicating binaries.
