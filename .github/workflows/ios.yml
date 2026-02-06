@@ -41,8 +41,9 @@ jobs:
             -sdk iphoneos \
             -archivePath $PWD/build/App.xcarchive \
             archive \
-            DEVELOPMENT_TEAM="" \
-            CODE_SIGN_STYLE=Automatic
+            DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }} \
+            CODE_SIGN_STYLE=Automatic \
+            -allowProvisioningUpdates
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
