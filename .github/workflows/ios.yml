@@ -40,7 +40,12 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -archivePath $PWD/build/App.xcarchive \
-            archive
+            archive \
+            DEVELOPMENT_TEAM="" \
+            CODE_SIGN_STYLE=Automatic
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
 
       - name: Create export options
         run: |
