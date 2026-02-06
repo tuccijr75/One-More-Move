@@ -1,4 +1,4 @@
-name: Build iOS IPA
+name: Build iOS App
 
 on:
   workflow_dispatch:
@@ -28,53 +28,22 @@ jobs:
       - name: Add iOS platform
         run: npx cap add ios
 
-      - name: Sync iOS project
+      - name: Sync iOS
         run: npx cap sync ios
 
-      - name: Build archive
+      - name: Build unsigned app
         run: |
           cd ios/App
           xcodebuild \
             -workspace App.xcworkspace \
             -scheme App \
-            -configuration Release \
+            -configuration Debug \
             -sdk iphoneos \
-            -archivePath $PWD/build/App.xcarchive \
-            archive \
-            DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }} \
-            CODE_SIGN_STYLE=Automatic \
-            -allowProvisioningUpdates
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+            CODE_SIGNING_ALLOWED=NO \
+            build
 
-      - name: Create export options
-        run: |
-          cat <<EOF > ios/App/ExportOptions.plist
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" 
-          "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>development</string>
-              <key>signingStyle</key>
-              <string>automatic</string>
-          </dict>
-          </plist>
-          EOF
-
-      - name: Export IPA
-        run: |
-          cd ios/App
-          xcodebuild \
-            -exportArchive \
-            -archivePath build/App.xcarchive \
-            -exportOptionsPlist ExportOptions.plist \
-            -exportPath build
-
-      - name: Upload IPA
+      - name: Upload app
         uses: actions/upload-artifact@v4
         with:
-          name: ios-ipa
-          path: ios/App/build/*.ipa
+          name: ios-app
+          path: ios/App/build/Debug-iphoneos/App.app
