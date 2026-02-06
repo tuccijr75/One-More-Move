@@ -655,12 +655,9 @@ function spawnEnemy() {
   state.enemies.push({
   x: tile.x,
   y: tile.y,
-  phase: rng() * Math.PI * 2, // stable per-enemy phase offset
- 
-  // Commitment
+  phase: rng() * Math.PI * 2,
   intent: null,
   intentLock: 0,
-
   stunned: 0,
 });
 
@@ -713,23 +710,19 @@ function bestKey(seedMode) {
 }
 
 function updateHud() {
-  // These spans are "numbers only" (labels already exist in HTML)
   turnsEl.textContent = state.turns;
   bestEl.textContent  = state.best;
   stageEl.textContent = state.stage;
-
-  // Center HUD items should stay short (no prefixes)
   difficultyEl.textContent = difficulty.toUpperCase();
   seedEl.textContent       = `Seed ${state.seed}`;
   modeEl.textContent       = String(state.seedMode || "RUN").toUpperCase();
 
-  // Focus: Diagonal token, Wall token, Phase Step availability, Freeze Turn token, Time Freeze (Space) moves
   const focusEl = document.getElementById("focus");
 if (focusEl) {
-  const D = state.tokens?.diag ?? 0;          // Diagonal token
-  const W = state.tokens?.wall ?? 0;          // Wall Ignore token
-  const F = state.phaseUsed ? 0 : 1;          // Phase Step ready (1) vs used (0)
-  const B = state.tokens?.freeze ?? 0;        // Freeze Turn token (B)
+  const D = state.tokens?.diag ?? 0;
+  const W = state.tokens?.wall ?? 0;
+  const F = state.phaseUsed ? 0 : 1;
+  const B = state.tokens?.freeze ?? 0;
 
   const holding = !!state.holdSpace;
   const tfReady = state.tokens?.timeFreeze ?? 0;
@@ -752,7 +745,6 @@ function setDifficulty(newDifficulty) {
   memoryStore.difficulty = difficulty;
   updateHud();
 
-  // ✅ SAFE UI SYNC (only if settings panel exists)
   const profileEl = document.getElementById("settings-profile");
   if (profileEl) {
     profileEl.textContent = difficulty.toUpperCase();
@@ -766,9 +758,7 @@ function planEnemyMoves(cfg) {
   const current = state.enemies.map(e => ({ ...e }));
   const desired = [];
 
-  // choose best neighbor for each enemy (vacated tiles allowed)
   current.forEach((enemy, idx) => {
-    // Skip stunned enemies (Phase Step safeguard)
     if (enemy.stunned > 0) {
       desired.push({ ...enemy, stunned: enemy.stunned - 1 });
       return;
@@ -778,9 +768,6 @@ function planEnemyMoves(cfg) {
       .filter(t => inBounds(t.x, t.y))
       .filter(t => !state.walls.has(posKey(t)));
 
-    // --- Commitment drop check (belongs once per enemy, BEFORE scoring tiles) ---
-    // If the player pulled away relative to the enemy's CURRENT position,
-    // drop commitment so this enemy can re-path.
     if (
       enemy.intentLock > 0 &&
       enemy.intent &&
@@ -794,7 +781,6 @@ function planEnemyMoves(cfg) {
       enemy.intent = null;
     }
 
-    // Commitment: if intent is locked, force that direction unless blocked
     if (enemy.intentLock > 0 && enemy.intent) {
       const locked = {
         x: enemy.x + enemy.intent.dx,
@@ -802,7 +788,6 @@ function planEnemyMoves(cfg) {
       };
       const lockedKey = posKey(locked);
 
-      // occupancy must be checked against CURRENT snapshot
       const occupied = current.some(
         (e, j) => j !== idx && e.x === locked.x && e.y === locked.y
       );
@@ -821,16 +806,12 @@ function planEnemyMoves(cfg) {
     let bestScore = -Infinity;
     let bestDist = Infinity;
 
-    // Precompute once per enemy (saves work and avoids subtle drift bugs)
     const currentEscapes = countPlayerEscapeOptions(new Set(current.map(posKey)));
 
     for (const tile of candidates) {
       let score = scoreEnemyMove(idx, enemy, tile, cfg);
-
-      // Keep this tie-breaker local to the candidate
       const dist = manhattan(tile, state.player);
 
-      // If this candidate reduces player escape options, reward it
       const hypotheticalEnemyKeys = new Set(
         current.map((e, i) => (i === idx ? posKey(tile) : posKey(e)))
       );
@@ -844,7 +825,6 @@ function planEnemyMoves(cfg) {
                                       2;
       }
 
-      // THEN compare (MUST be inside the candidate loop)
       if (score > bestScore || (score === bestScore && dist < bestDist)) {
         best = {
           ...enemy,
@@ -862,7 +842,6 @@ function planEnemyMoves(cfg) {
       }
     }
 
-    // decay lock if did not move
     if (best.x === enemy.x && best.y === enemy.y) {
       best.intent = null;
       best.intentLock = 0;
@@ -871,7 +850,6 @@ function planEnemyMoves(cfg) {
     desired.push(best);
   });
 
-  // disallow moving into a tile whose occupant stays
   const origins = current.map(p => ({ ...p }));
   desired.forEach((target, i) => {
     origins.forEach((origin, j) => {
@@ -883,7 +861,6 @@ function planEnemyMoves(cfg) {
     });
   });
 
-  // destination map
   const destMap = new Map();
   desired.forEach((tile, idx) => {
     const k = posKey(tile);
@@ -894,7 +871,6 @@ function planEnemyMoves(cfg) {
   const resolved = current.map(e => ({ ...e }));
   const resolvedIdx = new Set();
 
-  // allow pure swaps
   for (let i = 0; i < desired.length; i++) {
     if (resolvedIdx.has(i)) continue;
 
@@ -905,7 +881,6 @@ function planEnemyMoves(cfg) {
       const swapB = posKey(desired[j]) === posKey(current[i]);
       if (!swapA || !swapB) continue;
 
-      // Never allow swaps that would move into the player tile (kills must resolve as kills).
       if (
         (desired[i].x === state.player.x && desired[i].y === state.player.y) ||
         (desired[j].x === state.player.x && desired[j].y === state.player.y)
@@ -925,7 +900,6 @@ function planEnemyMoves(cfg) {
     }
   }
 
-  // resolve collisions
   for (const [k, indices] of destMap.entries()) {
     const contenders = indices.filter(idx => !resolvedIdx.has(idx));
     if (!contenders.length) continue;
@@ -949,7 +923,6 @@ function planEnemyMoves(cfg) {
     resolved[winner] = { ...desired[winner] };
   }
 
-  // If an enemy ultimately did not move (due to collisions/swaps), clear its intent lock.
   resolved.forEach((e, i) => {
     if (e.x === current[i].x && e.y === current[i].y) {
       e.intent = null;
@@ -957,7 +930,6 @@ function planEnemyMoves(cfg) {
     }
   });
 
-  // If any enemy ended on the player tile, force that outcome (prevents swap/collision canceling kills).
   const killer = resolved.find(e => e.x === state.player.x && e.y === state.player.y);
   if (killer) {
     return {
@@ -984,11 +956,9 @@ function delay(ms) {
 }
 
 function handleDeath(cause, killer) {
-  // Extra life trigger
   if (state.hasExtraLife) {
     state.hasExtraLife = false;
 
-  // Relocate player to safest reachable tile
     const blocked = new Set(state.walls);
     const reachable = reachableTilesFrom(state.player, blocked);
 
@@ -996,37 +966,31 @@ function handleDeath(cause, killer) {
     let bestScore = -Infinity;
 
     for (const k of reachable) {
-    const [x, y] = k.split(",").map(Number);
-    if (state.enemies.some(e => e.x === x && e.y === y)) continue;
+      const [x, y] = k.split(",").map(Number);
+      if (state.enemies.some(e => e.x === x && e.y === y)) continue;
 
-    const hypothetical = new Set(state.enemies.map(posKey));
-    const escapes = countPlayerEscapeOptions(hypothetical);
+      const hypothetical = new Set(state.enemies.map(posKey));
+      const escapes = countPlayerEscapeOptions(hypothetical);
 
-    const minDist = Math.min(
-      ...state.enemies.map(e => manhattan(e, { x, y }))
-      );
-
-    let score = escapes * 10 + minDist;
-    if (score > bestScore) {
-      bestScore = score;
-      best = { x, y };
+      const minDist = Math.min(...state.enemies.map(e => manhattan(e, { x, y })));
+      let score = escapes * 10 + minDist;
+      if (score > bestScore) {
+        bestScore = score;
+        best = { x, y };
+      }
     }
-  }
 
-  if (best) {
-    state.player = best;
-    updateHud();
-    return;
+    if (best) {
+      state.player = best;
+      updateHud();
+      return;
     }
   }
 
   state.gameOver = true;
   state.inputLocked = true;
-
-  // freeze
   state.effects.freezeUntil = performance.now() + DEATH_FREEZE_MS;
   state.effects.killer = killer ? { x: killer.x, y: killer.y } : null;
-
   playDeathSound();
   
   setTimeout(() => {
@@ -1045,12 +1009,8 @@ function onTurnAdvanced() {
 }
 
 async function resolveTurnAsync() {
-
-// Enforce enemy movement eventually
 if (state.freezeNext) {
   state.freezeNext = false;
-
-  // Skip enemy movement only
   state.turns++;
   onTurnAdvanced();
   state.inputLocked = false;
@@ -1058,7 +1018,6 @@ if (state.freezeNext) {
 }
 
   state.inputLocked = true;
-
   const cfg = effectiveCfg;
   await delay(cfg.turnDelay);
 
@@ -1071,25 +1030,19 @@ if (state.freezeNext) {
   }
 
   state.enemies = plan.resolvedMoves;
-  
-  // enemy sound (safe)
   if (!state.gameOver && state.enemies.length) playEnemySound();
 
-  // death: enemy on player
   const hit = state.enemies.find(
   e => e.stunned === 0 && e.x === state.player.x && e.y === state.player.y
   );
   if (hit) return handleDeath("Intercepted.", hit);
 
-  // death: no escape
   const enemyKeys = new Set(state.enemies.map(posKey));
   if (!countPlayerEscapeOptions(enemyKeys)) return handleDeath("No escape.", null);
 
   state.turns++;
-
   onTurnAdvanced();
 
-  // Turn economy relief valves: every 12 turns grant a token (D -> W -> B cycle)
 if (state.turns % 12 === 0) {
   const phase = Math.floor(state.turns / 12) % 3;
   if (phase === 0 && state.tokens.diag === 0) state.tokens.diag = 1;
@@ -1097,7 +1050,6 @@ if (state.turns % 12 === 0) {
   if (phase === 2 && state.tokens.freeze === 0) state.tokens.freeze = 1;
 }
 
-// ✅ Time Freeze earns every 50 turns (max 1 owned)
 if (state.turns % 50 === 0 && (state.tokens.timeFreeze ?? 0) === 0) {
   state.tokens.timeFreeze = 1;
 }
@@ -1109,7 +1061,6 @@ if (state.turns % 50 === 0 && (state.tokens.timeFreeze ?? 0) === 0) {
 
   if (state.turns >= state.nextSpawnTurn) {
     const cap = enemyCountForStage(state.stage);
-
     if (state.enemies.length < cap) {
       spawnEnemy();
     }
@@ -1124,7 +1075,6 @@ if (state.turns % 50 === 0 && (state.tokens.timeFreeze ?? 0) === 0) {
   updateHud();
   state.inputLocked = false;
   state.effects.lastEnemyTurn = state.turns;
-
 }
 
 function payTurnDebtAsync() {
@@ -1135,14 +1085,13 @@ function payTurnDebtAsync() {
   state.turnDebt = 0;
 
   if (state.payingDebt) return;
-state.payingDebt = true;
+  state.payingDebt = true;
 
   (async () => {
    try {
     for (let i = 0; i < debt; i++) {
       if (!state || state.gameOver) return;
       await resolveTurnAsync();
-
     }
    } catch (err) {
      console.error("Turn debt error:", err);
@@ -1159,42 +1108,25 @@ function attemptMove(dx, dy) {
   if (state.gameOver || state.inputLocked) return;
   if (state.holdSpace && state.holdMovesLeft <= 0) return;
 
-  // =========================
-  // Phase Step (armed) — replaces normal movement
-  // =========================
   if (state.phaseArmed) {
     if (dx !== 0 && dy !== 0) return;
 
     const first = { x: state.player.x + dx, y: state.player.y + dy };
     const second = { x: first.x + dx, y: first.y + dy };
 
-    // bounds
-    if (
-      !inBounds(first.x, first.y) ||
-      !inBounds(second.x, second.y)
-    ) return;
+    if (!inBounds(first.x, first.y) || !inBounds(second.x, second.y)) return;
+    if (state.walls.has(posKey(first)) || state.walls.has(posKey(second))) return;
 
-    // walls (both tiles block phase step)
-    if (
-      state.walls.has(posKey(first)) ||
-      state.walls.has(posKey(second))
-    ) return;
-
-    // second tile cannot be an enemy (first may be)
     const secondHasEnemy = state.enemies.some(
       e => e.x === second.x && e.y === second.y
     );
     if (secondHasEnemy) return;
 
-    // Freeze enemy passed through (Phase Step safeguard)
     const phasedEnemy = state.enemies.find(
       e => e.x === first.x && e.y === first.y
     );
-    if (phasedEnemy) {
-      phasedEnemy.stunned = 1;
-    }
+    if (phasedEnemy) phasedEnemy.stunned = 1;
 
-    // commit movement
     state.player = { x: second.x, y: second.y };
     state.playerTrail.unshift(posKey(state.player));
     state.playerTrail = state.playerTrail.slice(0, 2);
@@ -1217,16 +1149,12 @@ function attemptMove(dx, dy) {
     return;
   }
 
-  // =========================
-  // Normal movement
-  // =========================
   const nx = state.player.x + dx;
   const ny = state.player.y + dy;
   if (!inBounds(nx, ny)) return;
 
   const k = `${nx},${ny}`;
 
-  // Wall Ignore token: bypass exactly one wall
   if (state.walls.has(k)) {
     if (state.wallIgnoreArmed) {
       state.wallIgnoreArmed = false;
@@ -1235,7 +1163,6 @@ function attemptMove(dx, dy) {
     }
   }
   
-  // Diagonal wall cutting prevention (normal movement only)
   if (dx !== 0 && dy !== 0) {
     const a = posKey({ x: state.player.x + dx, y: state.player.y });
     const b = posKey({ x: state.player.x, y: state.player.y + dy });
@@ -1246,15 +1173,11 @@ function attemptMove(dx, dy) {
   state.playerTrail.unshift(k);
   state.playerTrail = state.playerTrail.slice(0, 2);
 
-  // =========================
-  // Portal entry → advance stage
-  // =========================
   if (state.portal && nx === state.portal.x && ny === state.portal.y) {
     advanceStage();
     return;
   }
 
-  // stepped onto enemy
   const stepped = state.enemies.find(e => e.x === nx && e.y === ny);
   if (stepped) return handleDeath("Intercepted.", stepped);
 
@@ -1294,11 +1217,9 @@ function drawPortal() {
   const py = state.portal.y * CELL_SIZE + 4;
   const size = CELL_SIZE - 8;
 
-  // Base tile (black void)
   ctx.fillStyle = "#000";
   ctx.fillRect(px, py, size, size);
 
-  // Soft white halo
   ctx.globalAlpha = 0.8;
   ctx.shadowColor = "rgba(255,255,255,0.8)";
   ctx.shadowBlur = 14;
@@ -1321,7 +1242,6 @@ function drawTile(px, py, size, baseColor, shadow = true) {
   ctx.fillStyle = baseColor;
   ctx.fillRect(px, py, size, size);
 
-  // subtle edge bevel (not shiny)
   ctx.shadowBlur = 0;
   ctx.strokeStyle = "rgba(255,255,255,0.08)";
   ctx.lineWidth = 1;
@@ -1331,13 +1251,12 @@ function drawTile(px, py, size, baseColor, shadow = true) {
 }
 
 function drawEnemies() {
-  // (per-enemy phase used below)
   for (const e of state.enemies) {
     ctx.save();
     ctx.globalAlpha = 1;
 
     if (e.stunned > 0) {
-      ctx.globalAlpha = 0.6;        // ← ADD (stunned dim)
+      ctx.globalAlpha = 0.6;
     }
   
     const px = e.x * CELL_SIZE + 4;
@@ -1347,50 +1266,26 @@ function drawEnemies() {
 
     drawTile(px, py, size, e.stunned > 0 ? "#6aaeff" : "#c43636");
 
-    const strength = enemyPulseStrength(e); // 1.0 at dist=1, 0.45 at dist=2, else 0
-  if (strength > 0) {
-  ctx.save();
-
-  // soft glow (breathing)
-  ctx.globalAlpha = 0.55 * strength;
-  ctx.shadowColor = `rgba(255, 107, 107, ${0.55 * strength})`;
-  ctx.shadowBlur = 10 + 26 * phase * strength;
-
-  // glow body slightly larger
-  ctx.fillStyle = "#ff4d4d";
-  ctx.fillRect(
-    e.x * CELL_SIZE + 3,
-    e.y * CELL_SIZE + 3,
-    CELL_SIZE - 6,
-    CELL_SIZE - 6
-  );
-
-  // inner “hot core”
-  ctx.globalAlpha = (0.35 + 0.65 * phase) * strength;
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = "#ffb3b3";
-  const inset = 9 - 4 * phase; // breath in/out
-  ctx.fillRect(
-    e.x * CELL_SIZE + inset,
-    e.y * CELL_SIZE + inset,
-    CELL_SIZE - inset * 2,
-    CELL_SIZE - inset * 2
-  );
-
-  // outline pulse
-  ctx.globalAlpha = (0.35 + 0.65 * phase) * strength;
-  ctx.strokeStyle = "#ffd1d1";
-  ctx.lineWidth = 2 + 3 * phase * strength;
-  ctx.strokeRect(
-    e.x * CELL_SIZE + 5,
-    e.y * CELL_SIZE + 5,
-    CELL_SIZE - 10,
-    CELL_SIZE - 10
-  );
-
-  ctx.restore();
- }
- }
+    const strength = enemyPulseStrength(e);
+    if (strength > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.55 * strength;
+      ctx.shadowColor = `rgba(255, 107, 107, ${0.55 * strength})`;
+      ctx.shadowBlur = 10 + 26 * phase * strength;
+      ctx.fillStyle = "#ff4d4d";
+      ctx.fillRect(e.x * CELL_SIZE + 3, e.y * CELL_SIZE + 3, CELL_SIZE - 6, CELL_SIZE - 6);
+      ctx.globalAlpha = (0.35 + 0.65 * phase) * strength;
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#ffb3b3";
+      const inset = 9 - 4 * phase;
+      ctx.fillRect(e.x * CELL_SIZE + inset, e.y * CELL_SIZE + inset, CELL_SIZE - inset * 2, CELL_SIZE - inset * 2);
+      ctx.globalAlpha = (0.35 + 0.65 * phase) * strength;
+      ctx.strokeStyle = "#ffd1d1";
+      ctx.lineWidth = 2 + 3 * phase * strength;
+      ctx.strokeRect(e.x * CELL_SIZE + 5, e.y * CELL_SIZE + 5, CELL_SIZE - 10, CELL_SIZE - 10);
+      ctx.restore();
+    }
+  }
 }
 
 function drawPlayer() {
@@ -1424,17 +1319,11 @@ function drawPlayer() {
       for (let x = 0; x < grid; x++, idx++) {
         if (cellRand(idx) > keepRatio) continue;
         ctx.fillStyle = "#3a7bd5";
-        ctx.fillRect(
-          px + x * cell,
-          py + y * cell,
-          cell,
-          cell
-        );
+        ctx.fillRect(px + x * cell, py + y * cell, cell, cell);
       }
     }
 
     ctx.restore();
-
     if (p >= 1) state.effects.stageFx = null;
     return;
   }
@@ -1450,20 +1339,16 @@ function drawPlayer() {
 function drawMovingSquareHalo(px, py, size) {
   const t = playerHaloPhase() * 4;
   const perimeter = size * 4;
-  const segmentLength = size * 0.6;   // how much of the edge is lit
+  const segmentLength = size * 0.6;
   const offset = (t * perimeter) % perimeter;
-
-  // subtle pulse (alive, not cartoony)
   const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.004);
 
   ctx.save();
-
   ctx.strokeStyle = `rgba(120,180,255,${0.75 + 0.25 * pulse})`;
   ctx.lineWidth = 3 + pulse * 1.5;
   ctx.shadowColor = "rgba(120,180,255,0.6)";
   ctx.shadowBlur = 8 + pulse * 6;
   ctx.lineCap = "round";
-
   ctx.beginPath();
 
   let remaining = segmentLength;
@@ -1471,14 +1356,12 @@ function drawMovingSquareHalo(px, py, size) {
 
   while (remaining > 0) {
     if (d < size) {
-      // top edge
       const len = Math.min(size - d, remaining);
       ctx.moveTo(px + d, py);
       ctx.lineTo(px + d + len, py);
       remaining -= len;
       d += len;
     } else if (d < size * 2) {
-      // right edge
       const dd = d - size;
       const len = Math.min(size - dd, remaining);
       ctx.moveTo(px + size, py + dd);
@@ -1486,7 +1369,6 @@ function drawMovingSquareHalo(px, py, size) {
       remaining -= len;
       d += len;
     } else if (d < size * 3) {
-      // bottom edge
       const dd = d - size * 2;
       const len = Math.min(size - dd, remaining);
       ctx.moveTo(px + size - dd, py + size);
@@ -1494,7 +1376,6 @@ function drawMovingSquareHalo(px, py, size) {
       remaining -= len;
       d += len;
     } else {
-      // left edge
       const dd = d - size * 3;
       const len = Math.min(size - dd, remaining);
       ctx.moveTo(px, py + size - dd);
@@ -1539,7 +1420,6 @@ function render() {
     }
   }
 
-  // killer highlight during freeze
   if (state.effects.freezeUntil && performance.now() < state.effects.freezeUntil && state.effects.killer) {
     ctx.globalAlpha = 1;
     ctx.fillStyle = "#ff6b6b";
@@ -1551,17 +1431,14 @@ function render() {
     );
   }
 
- // danger label = adjacency boolean
-const dangerNow = state.enemies.some(isEnemyNear);
+  const dangerNow = state.enemies.some(isEnemyNear);
+  const hudEl = document.getElementById("hud");
 
-const hudEl = document.getElementById("hud");
-
-if (effectiveCfg.dangerFeedback) {
-  hudEl.classList.toggle("danger", dangerNow);
-} else {
-  hudEl.classList.remove("danger");
-}
-
+  if (effectiveCfg.dangerFeedback) {
+    hudEl.classList.toggle("danger", dangerNow);
+  } else {
+    hudEl.classList.remove("danger");
+  }
 }
 
 /* =========================
@@ -1573,7 +1450,6 @@ function handleKeyDown(e) {
   const key = e.key.toLowerCase();
   const now = performance.now();
 
-  // ESC to close settings modal
   if (key === "escape" && !settingsEl.classList.contains("hidden")) {
     closeSettings();
     return;
@@ -1601,7 +1477,6 @@ if (key === "y") {
   return;
 }
 
-// difficulty hotkeys (always allowed)
   if (key === "1") return setDifficulty("standard");
   if (key === "2") return setDifficulty("hard");
   if (key === "3") return setDifficulty("hardcore");
@@ -1612,7 +1487,6 @@ if (key === "y") {
 
   if (state.gameOver || state.inputLocked) return;
   
-  // Reward cooldown feedback (only for reward-related keys)
   if (
     now < state.rewardCooldownUntil &&
     ["q","e","z","c","v","b","f", " "].includes(key)
@@ -1621,7 +1495,6 @@ if (key === "y") {
     return;
   }
 
-// Diagonal move token (single-use, max 1 owned, global cooldown on use)
 if (state.tokens.diag > 0 && now >= state.rewardCooldownUntil) {
   if (key === "q") {
     state.tokens.diag = 0;
@@ -1649,7 +1522,6 @@ if (state.tokens.diag > 0 && now >= state.rewardCooldownUntil) {
   }
 }
 
-// Wall Ignore token: arm for next move (max 1 owned, global cooldown on use)
 if (
   key === "v" &&
   state.tokens.wall > 0 &&
@@ -1678,17 +1550,6 @@ if (
   return;
 }
 
- // Optional: spend 5 turns to delay the next spawn
-  if (key === "p") {
-    if (state.turns >= 5) {
-      state.turns -= 5;
-      state.nextSpawnTurn += 5;
-      updateHud();
-  }
-    return;
-  }
-
- // Phase Step: press F to arm, next move becomes a dash (global cooldown on use)
   if (
     key === "f" &&
     !state.phaseUsed &&
@@ -1707,53 +1568,40 @@ if (
   if (key === "d" || key === "arrowright") return attemptMove(1, 0);
 
  if (e.key === " ") {
-  if (e.repeat) return;                 // ✅ EXACT placement (prevents reset spam)
-  if (state.holdSpace) return;          // already active
-  if ((state.tokens.timeFreeze ?? 0) <= 0) return; // must be earned
+  if (e.repeat) return;
+  if (state.holdSpace) return;
+  if ((state.tokens.timeFreeze ?? 0) <= 0) return;
 
-  // Consume the earned Time Freeze
   state.tokens.timeFreeze = 0;
-
-  // Respect global reward cooldown
   state.rewardCooldownUntil = now + 30000;
-
-  // Start “hold space” mode (freeze enemies, allow up to 2 moves)
   state.holdSpace = true;
   state.holdMovesLeft = 2;
   state.holdStepsUsed = 0;
 
-  updateHud(); // show TF immediately
+  updateHud();
   return;
  }
-
 }
 
 function handleKeyUp(e) {
   if (e.key === " ") {
-    
-    // Release “hold space”; if you used it, pay +1 enemy-turn debt
     if (state && state.holdSpace) {
       state.holdSpace = false;
 
-    if (state.holdStepsUsed > 0) {
-      state.turnDebt += 1;
-
-     // Ensure at least one enemy turn is scheduled
-     if (!state.inputLocked) {
-      payTurnDebtAsync();
-     } else {
-     // Force-unlock and resolve exactly once
-     state.inputLocked = false;
-     payTurnDebtAsync();
-    }
-}
+      if (state.holdStepsUsed > 0) {
+        state.turnDebt += 1;
+        if (!state.inputLocked) {
+          payTurnDebtAsync();
+        } else {
+          state.inputLocked = false;
+          payTurnDebtAsync();
+        }
+      }
  
       state.holdMovesLeft = 2;
       state.holdStepsUsed = 0;
-
       updateHud();
     }
-
   }
 }
 
@@ -1768,14 +1616,12 @@ function initPreferences() {
 
 function openSettings() {
   if (state && !state.gameOver) {
-   // Optional: flash HUD or show brief message
-   return;
-}
+    return;
+  }
   const s = loadTuning();
   settingsEl.classList.remove("hidden");
 
   document.getElementById("settings-profile").textContent = difficulty.toUpperCase();
-  
   wallCountInput.value = WALL_COUNT;
   document.getElementById("set-wallCountNum").value = WALL_COUNT;
   enemyCountInput.value = INITIAL_ENEMIES;
@@ -1798,15 +1644,13 @@ function closeSettings() {
 function persistSettingsFromUI() {
   const next = {
     version: SETTINGS_VERSION,
-
     walls: Number(wallCountInput.value),
     initialEnemies: Number(enemyCountInput.value),
-
     initialSpawn: Number(initialSpawnInput.value),
     rampSpeed: Number(rampSpeedInput.value),
     escapePenalty: Number(escapePenaltyInput.value),
     gapFillBonus: Number(gapFillInput.value),
-                                                                     };
+  };
 
   saveTuning(next);
   closeSettings();
@@ -1821,50 +1665,49 @@ function initState({ seed, seedMode }) {
   rng = mulberry32(seed);
 
   state = {
-  player: { x: 5, y: 5 },
-  walls: new Set(),          // temporary, immediately replaced
-  enemies: [],
-  turns: 0,
-  best: Number(memoryStore.bestScores[bestKey(seedMode)] || 0),
-  nextSpawnTurn: Math.max(1, stateSpawnInitial),
-  gameOver: false,
-  inputLocked: false,
-  holdSpace: false,
-  holdMovesLeft: 2,
-  holdStepsUsed: 0,
-  playerTrail: [],
-  stage: 1,
-  portal: null,
-  nextPortalAtTurn: computeNextPortalTurn(1, 0),
-  hasExtraLife: false,
-  rewardCooldownUntil: 0,
-  phaseUsed: false,
-  phaseArmed: false,
-  tokens: { diag: 0, wall: 0, freeze: 0, timeFreeze: 0 },
-  freezeNext: false,
-  wallIgnoreArmed: false,
-  payingDebt: false,
-  turnDebt: 0,
-  seed,
-  seedMode,
-  effects: {
-    intentTiles: null,
-    freezeUntil: 0,
-    killer: null,
-    lastEnemyTurn: -1,
-    stageFx: null,
-    stageBannerUntil: 0,
-    statusUntil: 0,
-    statusText:
-      seedMode === "NEW" ? "NEW SEED" :
-      seedMode === "REPLAY" ? "REPLAYING SEED" : "",
-  },
-};
+    player: { x: 5, y: 5 },
+    walls: new Set(),
+    enemies: [],
+    turns: 0,
+    best: Number(memoryStore.bestScores[bestKey(seedMode)] || 0),
+    nextSpawnTurn: Math.max(1, stateSpawnInitial),
+    gameOver: false,
+    inputLocked: false,
+    holdSpace: false,
+    holdMovesLeft: 2,
+    holdStepsUsed: 0,
+    playerTrail: [],
+    stage: 1,
+    portal: null,
+    nextPortalAtTurn: computeNextPortalTurn(1, 0),
+    hasExtraLife: false,
+    rewardCooldownUntil: 0,
+    phaseUsed: false,
+    phaseArmed: false,
+    tokens: { diag: 0, wall: 0, freeze: 0, timeFreeze: 0 },
+    freezeNext: false,
+    wallIgnoreArmed: false,
+    payingDebt: false,
+    turnDebt: 0,
+    seed,
+    seedMode,
+    effects: {
+      intentTiles: null,
+      freezeUntil: 0,
+      killer: null,
+      lastEnemyTurn: -1,
+      stageFx: null,
+      stageBannerUntil: 0,
+      statusUntil: 0,
+      statusText:
+        seedMode === "NEW" ? "NEW SEED" :
+        seedMode === "REPLAY" ? "REPLAYING SEED" : "",
+    },
+  };
   
   state.walls = buildWallsCount(WALL_COUNT);
-
   const spawnCount = Math.max(0, Math.min(INITIAL_ENEMIES, GRID_SIZE * 2));
-    for (let i = 0; i < spawnCount; i++) spawnEnemy();
+  for (let i = 0; i < spawnCount; i++) spawnEnemy();
     
   overlayEl.classList.add("hidden");
   updateHud();
@@ -1920,9 +1763,6 @@ function boot() {
   initPreferences();
   applySettings();
 
-  // =========================
-  // Wire settings sliders (UI only)
-  // =========================
   for (const [sliderId, numberId] of SLIDER_PAIRS) {
     const slider = document.getElementById(sliderId);
     const number = document.getElementById(numberId);
@@ -1941,5 +1781,6 @@ window.addEventListener("keyup", handleKeyUp);
 settingsBackEl.addEventListener("click", closeSettings);
 settingsSaveEl.addEventListener("click", persistSettingsFromUI);
 settingsResetEl.addEventListener("click", resetSettings);
+window.__ommGetState = () => state;
 
 boot();
