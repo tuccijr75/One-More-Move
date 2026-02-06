@@ -42,8 +42,14 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
+      - name: Locate built app
+        run: |
+          cd ios/App
+          find . -name "*.app"
+
       - name: Upload app
         uses: actions/upload-artifact@v4
         with:
           name: ios-app
-          path: ios/App/build/Debug-iphoneos/App.app
+          path: ios/App/build/**/**/*.app
+
