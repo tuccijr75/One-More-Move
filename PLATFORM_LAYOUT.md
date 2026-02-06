@@ -6,4 +6,3 @@
 
 Notes:
 - iOS now uses a non-obfuscated `game.js` at `app/ios/game.js`.
-- Shared assets are currently duplicated per platform folder for isolation.
