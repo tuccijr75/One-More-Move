@@ -47,10 +47,11 @@ jobs:
           cd ios/App
           find . -name "*.app"
 
-      - name: Upload build folder
+      - name: Upload built app from DerivedData
         uses: actions/upload-artifact@v4
         with:
-          name: ios-build
-          path: ios/App/build
+          name: ios-app
+          path: ~/Library/Developer/Xcode/DerivedData/**/Build/Products/Debug-iphoneos/App.app
+
 
 
