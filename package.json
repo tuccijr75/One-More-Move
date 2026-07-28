@@ -1,6 +1,6 @@
 {
   "name": "one-more-move",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A tactical survival puzzle game where every move matters.",
   "author": "Michael Robertucci",
   "main": "main.js",
@@ -9,7 +9,9 @@
     "build": "electron-builder",
     "cap:sync": "npx cap sync",
     "ios:open": "npx cap open ios",
-    "ios:run": "npx cap run ios"
+    "ios:run": "npx cap run ios",
+    "test": "node tests/core.test.js && node tests/stress.test.js && node tests/browser.test.js",
+    "check": "node --check app/game.js && node --check app/touch-controls.js && npm test"
   },
   "build": {
     "appId": "com.tucci.onemoremove",
