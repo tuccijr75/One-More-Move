@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feature/roblox-foundation
     paths:
       - "roblox/**"
       - ".github/workflows/roblox.yml"
@@ -38,10 +37,27 @@ jobs:
 
       - name: Build playable and test places
         run: |
-          rojo build roblox/default.project.json --output /tmp/OneMoreMove.rbxlx
-          rojo build roblox/test.project.json --output /tmp/OneMoreMoveTests.rbxlx
-          test -s /tmp/OneMoreMove.rbxlx
-          test -s /tmp/OneMoreMoveTests.rbxlx
+          mkdir -p build/roblox
+          rojo build roblox/default.project.json --output build/roblox/OneMoreMove.rbxlx
+          rojo build roblox/test.project.json --output build/roblox/OneMoreMoveTests.rbxlx
+          test -s build/roblox/OneMoreMove.rbxlx
+          test -s build/roblox/OneMoreMoveTests.rbxlx
+
+      - name: Upload playable place
+        uses: actions/upload-artifact@v4
+        with:
+          name: OneMoreMove-Roblox-Place
+          path: build/roblox/OneMoreMove.rbxlx
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload deterministic test place
+        uses: actions/upload-artifact@v4
+        with:
+          name: OneMoreMove-Roblox-Tests
+          path: build/roblox/OneMoreMoveTests.rbxlx
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Build official Luau compiler
         run: |
