@@ -68,6 +68,13 @@ local function enemyCountForStage(stage: number): number
 	return Config.MaximumEnemies
 end
 
+local function rememberPlayerTile(state: State, tile: Position)
+	table.insert(state.playerTrail, 1, Grid.key(tile))
+	if #state.playerTrail > 2 then
+		table.remove(state.playerTrail)
+	end
+end
+
 local function safeSpawnTiles(state: State): { Position }
 	local result: { Position } = {}
 	local enemies = Grid.enemySet(state.enemies)
@@ -92,12 +99,39 @@ local function safeSpawnTiles(state: State): { Position }
 	return result
 end
 
-local function spawnEnemy(state: State): boolean
+local function pickSpawnTile(state: State): Position?
 	local candidates = safeSpawnTiles(state)
 	if #candidates == 0 then
+		return nil
+	end
+
+	local weights: { number } = {}
+	local total = 0
+	for index, tile in candidates do
+		local weight = 1
+		for _, trailKey in state.playerTrail do
+			local trail = Grid.fromKey(trailKey)
+			weight *= 1 + math.abs(tile.x - trail.x) + math.abs(tile.y - trail.y)
+		end
+		weights[index] = weight
+		total += weight
+	end
+
+	local roll = state.rng:NextNumber() * total
+	for index, tile in candidates do
+		roll -= weights[index]
+		if roll <= 0 then
+			return tile
+		end
+	end
+	return candidates[#candidates]
+end
+
+local function spawnEnemy(state: State): boolean
+	local tile = pickSpawnTile(state)
+	if not tile then
 		return false
 	end
-	local tile = candidates[state.rng:NextInteger(#candidates) + 1]
 	local id = state.nextEnemyId
 	state.nextEnemyId += 1
 	table.insert(state.enemies, {
@@ -118,16 +152,16 @@ local function nextPortalTurn(stage: number, currentTurn: number): number
 end
 
 local function chooseRevivalTile(state: State): Position?
-	local reachable = Grid.reachable(state.player, state.walls)
+	local ordered = Grid.reachableOrdered(state.player, state.walls)
 	local enemies = Grid.enemySet(state.enemies)
 	local best: Position? = nil
 	local bestDistance = -1
 	local bestEscapes = -1
-	for key in reachable do
-		if enemies[key] then
+
+	for _, tile in ordered do
+		if enemies[Grid.key(tile)] then
 			continue
 		end
-		local tile = Grid.fromKey(key)
 		local escapes = Grid.countEscapes(tile, state.walls, enemies, false)
 		if escapes < 2 then
 			continue
@@ -136,7 +170,12 @@ local function chooseRevivalTile(state: State): Position?
 		for _, enemy in state.enemies do
 			minimumDistance = math.min(minimumDistance, Grid.manhattan(enemy, tile))
 		end
-		if minimumDistance > bestDistance or (minimumDistance == bestDistance and escapes > bestEscapes) then
+		local earlierCoordinate = best ~= nil
+			and (tile.y < best.y or (tile.y == best.y and tile.x < best.x))
+		if minimumDistance > bestDistance
+			or (minimumDistance == bestDistance and escapes > bestEscapes)
+			or (minimumDistance == bestDistance and escapes == bestEscapes and earlierCoordinate)
+		then
 			best = tile
 			bestDistance = minimumDistance
 			bestEscapes = escapes
@@ -151,10 +190,7 @@ local function handleDeath(state: State, cause: string): boolean
 		if revival then
 			state.hasExtraLife = false
 			state.player = revival
-			table.insert(state.playerTrail, 1, Grid.key(revival))
-			if #state.playerTrail > 2 then
-				table.remove(state.playerTrail)
-			end
+			rememberPlayerTile(state, revival)
 			return false
 		end
 	end
@@ -167,15 +203,13 @@ local function spawnPortal(state: State)
 	if state.portal or state.turns < state.nextPortalTurn then
 		return
 	end
-	local reachable = Grid.reachable(state.player, state.walls)
+	local ordered = Grid.reachableOrdered(state.player, state.walls)
 	local enemies = Grid.enemySet(state.enemies)
 	local candidates: { Position } = {}
-	for key in reachable do
-		if not enemies[key] then
-			local tile = Grid.fromKey(key)
-			if not Grid.same(tile, state.player) then
-				table.insert(candidates, tile)
-			end
+	for _, tile in ordered do
+		local key = Grid.key(tile)
+		if not enemies[key] and not Grid.same(tile, state.player) then
+			table.insert(candidates, tile)
 		end
 	end
 	if #candidates == 0 then
@@ -309,6 +343,7 @@ local function move(state: State, dx: number, dy: number, now: number): (boolean
 		state.phaseArmed = false
 		state.phaseUsed = true
 		state.player = second
+		rememberPlayerTile(state, second)
 		completeMove(state)
 		return true, nil
 	end
@@ -342,10 +377,7 @@ local function move(state: State, dx: number, dy: number, now: number): (boolean
 		state.wallIgnoreArmed = false
 	end
 	state.player = destination
-	table.insert(state.playerTrail, 1, destinationKey)
-	if #state.playerTrail > 2 then
-		table.remove(state.playerTrail)
-	end
+	rememberPlayerTile(state, destination)
 	for _, enemy in state.enemies do
 		if Grid.same(enemy, destination) then
 			handleDeath(state, "Intercepted.")
