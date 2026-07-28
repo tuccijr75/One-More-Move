@@ -10,7 +10,7 @@
     "cap:sync": "npx cap sync",
     "ios:open": "npx cap open ios",
     "ios:run": "npx cap run ios",
-    "test": "node tests/core.test.js && node tests/stress.test.js && node tests/browser.test.js",
+    "test": "node tests/core.test.js && node tests/stress.test.js && node tests/browser.test.js && node tests/runtime.test.js",
     "check": "node --check app/game.js && node --check app/touch-controls.js && npm test"
   },
   "build": {
