@@ -13,6 +13,9 @@
       },
       "ParityFixture": {
         "$path": "tests/ParityFixture.server.lua"
+      },
+      "SecurityFixture": {
+        "$path": "tests/SecurityFixture.server.lua"
       }
     }
   }
