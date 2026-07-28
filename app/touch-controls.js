@@ -1,150 +1,107 @@
-const specialContainer = document.querySelector(".touch-special");
-const specialButton = document.querySelector("#touch-special-btn");
-const canvas = document.querySelector("#game");
+"use strict";
 
-const dispatchKey = (type, keyValue) => {
-  const event = new KeyboardEvent(type, {
-    key: keyValue,
-    bubbles: true,
-  });
-  window.dispatchEvent(event);
-};
+(() => {
+  const GRID_SIZE = 10;
+  const DEADZONE_RATIO = 0.25;
+  const DIAGONAL_RATIO = 1.2;
+  const canvas = document.getElementById("game");
+  const specialContainer = document.querySelector(".touch-special");
 
-const GRID_SIZE = 10;
-const DEADZONE_RATIO = 0.25;
-const DIAGONAL_RATIO = 1.2;
-
-const getState = () => (typeof window.__ommGetState === "function" ? window.__ommGetState() : null);
-
-const getDirectionKey = (dx, dy) => {
-  const absX = Math.abs(dx);
-  const absY = Math.abs(dy);
-  if (absX < 1 && absY < 1) return null;
-  if (absX > absY * DIAGONAL_RATIO) return dx > 0 ? "ArrowRight" : "ArrowLeft";
-  if (absY > absX * DIAGONAL_RATIO) return dy > 0 ? "ArrowDown" : "ArrowUp";
-  if (dx > 0 && dy < 0) return "e";
-  if (dx < 0 && dy < 0) return "q";
-  if (dx > 0 && dy > 0) return "c";
-  if (dx < 0 && dy > 0) return "z";
-  return null;
-};
-
-const handleCanvasTap = (event) => {
-  if (!canvas) return;
-  const state = getState();
-  if (!state || !state.player) return;
-
-  const rect = canvas.getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
-  const cellSize = rect.width / GRID_SIZE;
-  const playerCenterX = (state.player.x + 0.5) * cellSize;
-  const playerCenterY = (state.player.y + 0.5) * cellSize;
-  const dx = x - playerCenterX;
-  const dy = y - playerCenterY;
-  const deadzone = cellSize * DEADZONE_RATIO;
-
-  if (Math.abs(dx) < deadzone && Math.abs(dy) < deadzone) return;
-
-  const key = getDirectionKey(dx, dy);
-  if (!key) return;
-  dispatchKey("keydown", key);
-};
-
-const SPECIALS = [
-  {
-    key: " ",
-    label: "Time Freeze",
-    hold: true,
-    isAvailable: (state) => state?.tokens?.timeFreeze > 0,
-  },
-  {
-    key: "b",
-    label: "Freeze Turn",
-    hold: false,
-    isAvailable: (state) => state?.tokens?.freeze > 0,
-  },
-  {
-    key: "v",
-    label: "Wall Ignore",
-    hold: false,
-    isAvailable: (state) => state?.tokens?.wall > 0,
-  },
-  {
-    key: "f",
-    label: "Phase Step",
-    hold: false,
-    isAvailable: (state) =>
-      state && !state.phaseUsed && !state.phaseArmed && performance.now() >= state.rewardCooldownUntil,
-  },
-];
-
-const updateSpecialButton = () => {
-  if (!specialContainer || !specialButton) return;
-  const state = getState();
-  const special = SPECIALS.find((entry) => entry.isAvailable(state));
-
-  if (!special) {
-    specialContainer.classList.add("is-hidden");
-    return;
+  function getState() {
+    return typeof window.__ommGetState === "function" ? window.__ommGetState() : null;
   }
 
-  specialContainer.classList.remove("is-hidden");
-  specialButton.textContent = special.label;
-  specialButton.dataset.key = special.key;
-  specialButton.dataset.hold = special.hold ? "true" : "false";
-};
-
-const handleSpecialDown = (event) => {
-  const keyValue = event.currentTarget.dataset.key;
-  if (!keyValue) return;
-  dispatchKey("keydown", keyValue);
-  if (event.currentTarget.dataset.hold === "true") {
-    event.currentTarget.classList.add("is-active");
+  function command(name, value) {
+    return typeof window.__ommCommand === "function" ? window.__ommCommand(name, value) : false;
   }
-};
 
-const handleSpecialUp = (event) => {
-  const keyValue = event.currentTarget.dataset.key;
-  if (!keyValue) return;
-  if (event.currentTarget.dataset.hold === "true") {
-    dispatchKey("keyup", keyValue);
-    event.currentTarget.classList.remove("is-active");
+  function move(dx, dy) {
+    return typeof window.__ommMove === "function" ? window.__ommMove(dx, dy) : false;
   }
-};
 
-if (canvas) {
-  canvas.addEventListener("pointerdown", (event) => {
+  function directionFromPointer(event) {
+    const state = getState();
+    if (!canvas || !state?.player) return null;
+    const rect = canvas.getBoundingClientRect();
+    const cellSize = rect.width / GRID_SIZE;
+    const playerX = (state.player.x + 0.5) * cellSize;
+    const playerY = (state.player.y + 0.5) * cellSize;
+    const dx = event.clientX - rect.left - playerX;
+    const dy = event.clientY - rect.top - playerY;
+    const deadzone = cellSize * DEADZONE_RATIO;
+    if (Math.abs(dx) < deadzone && Math.abs(dy) < deadzone) return null;
+    if (Math.abs(dx) > Math.abs(dy) * DIAGONAL_RATIO) return { dx: dx > 0 ? 1 : -1, dy: 0 };
+    if (Math.abs(dy) > Math.abs(dx) * DIAGONAL_RATIO) return { dx: 0, dy: dy > 0 ? 1 : -1 };
+    return { dx: dx > 0 ? 1 : -1, dy: dy > 0 ? 1 : -1 };
+  }
+
+  canvas?.addEventListener("pointerdown", (event) => {
     event.preventDefault();
-    handleCanvasTap(event);
-  });
-}
-
-if (specialButton) {
-  specialButton.addEventListener("pointerdown", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    handleSpecialDown(event);
+    const direction = directionFromPointer(event);
+    if (direction) move(direction.dx, direction.dy);
   });
 
-  specialButton.addEventListener("pointerup", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    handleSpecialUp(event);
+  document.querySelectorAll("[data-command]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      command(button.dataset.command, button.dataset.value);
+    });
   });
 
-  specialButton.addEventListener("pointerleave", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    handleSpecialUp(event);
-  });
-}
+  const abilities = [
+    { name: "time", label: "Time Freeze", available: (s) => s?.tokens?.timeFreeze > 0 || s?.holdSpace },
+    { name: "freeze", label: "Freeze Turn", available: (s) => s?.tokens?.freeze > 0 || s?.freezeNext },
+    { name: "wall", label: "Wall Ignore", available: (s) => s?.tokens?.wall > 0 || s?.wallIgnoreArmed },
+    { name: "phase", label: "Phase Step", available: (s) => s && (!s.phaseUsed || s.phaseArmed) },
+  ];
 
-const pollSpecials = () => {
-  updateSpecialButton();
-  requestAnimationFrame(pollSpecials);
-};
+  function createAbilityButton(ability, state) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "touch-special-btn";
+    button.textContent = ability.label;
 
-if (specialContainer) {
-  pollSpecials();
-}
+    if (ability.name === "time") {
+      button.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        command("time-start");
+        button.classList.add("active");
+      });
+      const release = (event) => {
+        event.preventDefault();
+        command("time-end");
+        button.classList.remove("active");
+      };
+      button.addEventListener("pointerup", release);
+      button.addEventListener("pointercancel", release);
+      button.addEventListener("pointerleave", release);
+    } else {
+      button.addEventListener("click", () => command(ability.name));
+    }
+
+    if ((ability.name === "wall" && state.wallIgnoreArmed) ||
+        (ability.name === "freeze" && state.freezeNext) ||
+        (ability.name === "phase" && state.phaseArmed)) {
+      button.classList.add("armed");
+    }
+    return button;
+  }
+
+  function renderAbilities() {
+    if (!specialContainer) return;
+    const state = getState();
+    const signature = abilities
+      .map((ability) => `${ability.name}:${ability.available(state) ? 1 : 0}`)
+      .join("|") + `:${state?.wallIgnoreArmed ? 1 : 0}:${state?.freezeNext ? 1 : 0}:${state?.phaseArmed ? 1 : 0}`;
+    if (specialContainer.dataset.signature === signature) return;
+    specialContainer.dataset.signature = signature;
+    specialContainer.replaceChildren();
+    abilities.filter((ability) => ability.available(state)).forEach((ability) => {
+      specialContainer.appendChild(createAbilityButton(ability, state));
+    });
+    specialContainer.classList.toggle("is-hidden", specialContainer.childElementCount === 0);
+  }
+
+  renderAbilities();
+  window.setInterval(renderAbilities, 150);
+})();
