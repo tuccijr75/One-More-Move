@@ -284,11 +284,12 @@ local function advanceStage(state: State)
 	state.stage += 1
 	state.portal = nil
 	state.nextPortalTurn = nextPortalTurn(state.stage, state.turns)
-	state.enemies = {}
 	if state.stage % Config.WallAddEveryStages == 0 then
 		state.wallCount = math.min(Config.WallMaximum, state.wallCount + 1)
 	end
-	state.walls = Grid.buildWalls(state.rng, state.player, {}, nil, state.wallCount, state.walls)
+	local outgoingEnemies = state.enemies
+	state.walls = Grid.buildWalls(state.rng, state.player, outgoingEnemies, nil, state.wallCount, state.walls)
+	state.enemies = {}
 	for _ = 1, enemyCountForStage(state.stage) do
 		spawnEnemy(state)
 	end
@@ -313,11 +314,15 @@ local function completeMove(state: State)
 	resolveEnemyTurn(state)
 end
 
+local function isUnitDirection(value: number): boolean
+	return value == value and value % 1 == 0 and value >= -1 and value <= 1
+end
+
 local function move(state: State, dx: number, dy: number, now: number): (boolean, string?)
 	if state.gameOver then
 		return false, "game over"
 	end
-	if dx == 0 and dy == 0 or math.abs(dx) > 1 or math.abs(dy) > 1 then
+	if not isUnitDirection(dx) or not isUnitDirection(dy) or (dx == 0 and dy == 0) then
 		return false, "invalid direction"
 	end
 
