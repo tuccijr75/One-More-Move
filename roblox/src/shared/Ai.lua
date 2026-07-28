@@ -31,6 +31,37 @@ type Proposal = {
 
 local Ai = {}
 
+local function copyEnemy(enemy: Enemy): Enemy
+	return {
+		id = enemy.id,
+		x = enemy.x,
+		y = enemy.y,
+		stunned = enemy.stunned,
+		intentX = enemy.intentX,
+		intentY = enemy.intentY,
+		intentLock = enemy.intentLock,
+	}
+end
+
+local function stationaryEnemy(enemy: Enemy, stunned: number?): Enemy
+	local result = copyEnemy(enemy)
+	result.stunned = stunned or enemy.stunned
+	result.intentX = nil
+	result.intentY = nil
+	result.intentLock = 0
+	return result
+end
+
+local function movedEnemy(enemy: Enemy, tile: Position, lockTurns: number): Enemy
+	local result = copyEnemy(enemy)
+	result.x = tile.x
+	result.y = tile.y
+	result.intentX = tile.x - enemy.x
+	result.intentY = tile.y - enemy.y
+	result.intentLock = lockTurns
+	return result
+end
+
 local function compareRank(left: { number }, right: { number }): boolean
 	for index = 1, math.max(#left, #right) do
 		local a = left[index] or 0
@@ -104,7 +135,7 @@ local function proposalFor(state: StateView, index: number, assignments: { [numb
 		return {
 			target = { x = enemy.x, y = enemy.y },
 			rank = { 9, index },
-			nextEnemy = { ...enemy, stunned = enemy.stunned - 1, intentX = nil, intentY = nil, intentLock = 0 },
+			nextEnemy = stationaryEnemy(enemy, enemy.stunned - 1),
 		}
 	end
 
@@ -120,14 +151,7 @@ local function proposalFor(state: StateView, index: number, assignments: { [numb
 			return {
 				target = tile,
 				rank = { -1, index },
-				nextEnemy = {
-					...enemy,
-					x = tile.x,
-					y = tile.y,
-					intentX = tile.x - enemy.x,
-					intentY = tile.y - enemy.y,
-					intentLock = config.commitLockTurns,
-				},
+				nextEnemy = movedEnemy(enemy, tile, config.commitLockTurns),
 			}
 		end
 	end
@@ -136,7 +160,7 @@ local function proposalFor(state: StateView, index: number, assignments: { [numb
 		return {
 			target = { x = enemy.x, y = enemy.y },
 			rank = { 8, index },
-			nextEnemy = { ...enemy, intentX = nil, intentY = nil, intentLock = 0 },
+			nextEnemy = stationaryEnemy(enemy),
 		}
 	end
 
@@ -167,14 +191,7 @@ local function proposalFor(state: StateView, index: number, assignments: { [numb
 		local candidate: Proposal = {
 			target = tile,
 			rank = { chaseTier, distance, pressure, if followsIntent then 0 else 1, tile.y, tile.x, index },
-			nextEnemy = {
-				...enemy,
-				x = tile.x,
-				y = tile.y,
-				intentX = dx,
-				intentY = dy,
-				intentLock = config.commitLockTurns,
-			},
+			nextEnemy = movedEnemy(enemy, tile, config.commitLockTurns),
 		}
 		if not best or compareRank(candidate.rank, best.rank) then
 			best = candidate
@@ -221,9 +238,7 @@ local function resolve(state: StateView, proposals: { Proposal }): { Enemy }
 	local result: { Enemy } = {}
 	local occupied: PositionSet = {}
 	for index, enemy in state.enemies do
-		local nextEnemy = if moving[index]
-			then proposals[index].nextEnemy
-			else { ...enemy, intentX = nil, intentY = nil, intentLock = 0 }
+		local nextEnemy = if moving[index] then proposals[index].nextEnemy else stationaryEnemy(enemy)
 		local key = Grid.key(nextEnemy)
 		assert(not occupied[key], "duplicate enemy destination")
 		occupied[key] = true
