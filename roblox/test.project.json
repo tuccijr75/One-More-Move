@@ -10,6 +10,9 @@
     "ServerScriptService": {
       "TestRunner": {
         "$path": "tests/TestRunner.server.lua"
+      },
+      "ParityFixture": {
+        "$path": "tests/ParityFixture.server.lua"
       }
     }
   }
