@@ -47,6 +47,13 @@ local function dailySeed(): number
 	return math.floor(DateTime.now().UnixTimestamp / 86400)
 end
 
+local function validSeed(value: unknown): boolean
+	return typeof(value) == "number"
+		and value == value
+		and value > -math.huge
+		and value < math.huge
+end
+
 local function sendState(player: Player, message: string?)
 	local state = sessions[player]
 	if not state then
@@ -67,8 +74,8 @@ local function startRun(player: Player, mode: string, requestedDifficulty: unkno
 		seed = dailySeed()
 	elseif mode == "replay" and previous then
 		seed = previous.seed
-	elseif mode == "manual" and typeof(requestedSeed) == "number" then
-		seed = math.floor(requestedSeed) % 4294967296
+	elseif mode == "manual" and validSeed(requestedSeed) then
+		seed = math.floor(requestedSeed :: number) % 4294967296
 	else
 		mode = "new"
 		seed = randomSeed(player)
