@@ -1,0 +1,59 @@
+name: Roblox Validation
+
+on:
+  push:
+    branches:
+      - main
+      - feature/roblox-foundation
+    paths:
+      - "roblox/**"
+      - ".github/workflows/roblox.yml"
+  pull_request:
+    paths:
+      - "roblox/**"
+      - ".github/workflows/roblox.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate project JSON
+        run: |
+          python -m json.tool roblox/default.project.json > /dev/null
+          python -m json.tool roblox/test.project.json > /dev/null
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Rojo 7.6.1
+        run: cargo install rojo --version 7.6.1 --locked
+
+      - name: Build playable and test places
+        run: |
+          rojo build roblox/default.project.json --output /tmp/OneMoreMove.rbxlx
+          rojo build roblox/test.project.json --output /tmp/OneMoreMoveTests.rbxlx
+          test -s /tmp/OneMoreMove.rbxlx
+          test -s /tmp/OneMoreMoveTests.rbxlx
+
+      - name: Build official Luau compiler
+        run: |
+          git clone --depth 1 --branch 0.730 https://github.com/luau-lang/luau.git /tmp/luau
+          cmake -S /tmp/luau -B /tmp/luau/build -DCMAKE_BUILD_TYPE=Release -DLUAU_BUILD_TESTS=OFF
+          cmake --build /tmp/luau/build --parallel 2
+
+      - name: Compile every Luau source file
+        run: |
+          COMPILER="$(find /tmp/luau/build -type f -name luau-compile | head -n 1)"
+          test -n "$COMPILER"
+          while IFS= read -r -d '' file; do
+            echo "Compiling $file"
+            "$COMPILER" "$file" > /dev/null
+          done < <(find roblox/src roblox/tests -type f -name '*.lua' -print0)

@@ -1,0 +1,23 @@
+{
+  "name": "OneMoreMove",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "OneMoreMove": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "OneMoreMoveServer": {
+        "$path": "src/server/OneMoreMoveServer.server.lua"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "OneMoreMoveClient": {
+          "$path": "src/client/OneMoreMoveClient.client.lua"
+        }
+      }
+    }
+  }
+}

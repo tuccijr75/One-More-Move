@@ -1,0 +1,22 @@
+{
+  "name": "OneMoreMoveTests",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "OneMoreMove": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "TestRunner": {
+        "$path": "tests/TestRunner.server.lua"
+      },
+      "ParityFixture": {
+        "$path": "tests/ParityFixture.server.lua"
+      },
+      "SecurityFixture": {
+        "$path": "tests/SecurityFixture.server.lua"
+      }
+    }
+  }
+}
