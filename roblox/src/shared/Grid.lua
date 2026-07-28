@@ -64,7 +64,7 @@ function Grid.enemySet(enemies: { EnemyLike }): PositionSet
 	return result
 end
 
-function Grid.reachable(start: Position, blocked: PositionSet): PositionSet
+function Grid.reachableOrdered(start: Position, blocked: PositionSet): ({ Position }, PositionSet)
 	local visited: PositionSet = { [Grid.key(start)] = true }
 	local queue: { Position } = { start }
 	local cursor = 1
@@ -85,6 +85,11 @@ function Grid.reachable(start: Position, blocked: PositionSet): PositionSet
 		end
 	end
 
+	return queue, visited
+end
+
+function Grid.reachable(start: Position, blocked: PositionSet): PositionSet
+	local _, visited = Grid.reachableOrdered(start, blocked)
 	return visited
 end
 
@@ -249,14 +254,8 @@ function Grid.buildWalls(
 			end
 		end
 
-		local reachable = Grid.reachable(player, walls)
-		local reachableCount = 0
-		for _, value in reachable do
-			if value then
-				reachableCount += 1
-			end
-		end
-		if reachableCount >= minimumReachable and Grid.countEscapes(player, walls, {}, false) >= 2 then
+		local ordered = Grid.reachableOrdered(player, walls)
+		if #ordered >= minimumReachable and Grid.countEscapes(player, walls, {}, false) >= 2 then
 			return walls
 		end
 	end
