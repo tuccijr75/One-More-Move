@@ -1,0 +1,16 @@
+{
+  "name": "OneMoreMoveTests",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "OneMoreMove": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "TestRunner": {
+        "$path": "tests/TestRunner.server.lua"
+      }
+    }
+  }
+}
