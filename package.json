@@ -14,7 +14,8 @@
     "deploy:check": "npm run check:web && node scripts/neocities.js",
     "deploy:neocities": "npm run check && node scripts/neocities.js --upload",
     "lab": "node scripts/run-lab.js",
-    "lab:smoke": "node scripts/run-lab.js --runs=3 --max-actions=100"
+    "lab:smoke": "node scripts/run-lab.js --runs=3 --max-actions=100",
+    "lab:benchmark": "node scripts/run-lab.js --runs=100 --max-actions=160 --seed=777 --input-ms=1000"
   },
   "build": {
     "appId": "com.tucci.onemoremove",

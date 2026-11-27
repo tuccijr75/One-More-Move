@@ -1,0 +1,37 @@
+name: Laboratory Benchmark
+
+on:
+  push:
+    branches:
+      - feat/omm-2-web-first
+    paths:
+      - app/game.js
+      - scripts/lab.js
+      - scripts/run-lab.js
+      - .github/workflows/lab.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify deterministic runtime
+        run: npm test
+      - name: Run matched-seed benchmark
+        run: npm run lab:benchmark
+      - name: Upload benchmark evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: one-more-move-benchmark
+          path: dist/lab/results.json
+          if-no-files-found: error

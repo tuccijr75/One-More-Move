@@ -1,6 +1,7 @@
 "use strict";
 const core = require("../app/game.js");
 const { performance } = require("node:perf_hooks");
+const { createHash } = require("node:crypto");
 
 const STRATEGIES = ["random", "greedy", "portal", "defensive", "tactical"];
 const DIFFICULTIES = ["standard", "hard", "hardcore"];
@@ -92,9 +93,17 @@ async function simulate({seed,difficulty,strategy,maxActions=160,inputMs=1000}) 
   let actions=0,waits=0,portalSpawns=0,unreachablePortals=0,portalEntries=0;
   let riskSamples=0,allImmediateRisk=0,adjacentPressureSum=0,pressureSamples=0;
   let reason="action-cap",s=run.snapshot();
+  const trajectory=createHash("sha256");
+  function record(snapshot){
+    // Ignore wall-clock and visual intent timing, but retain gameplay state and decisions.
+    const { player,walls,enemies,turns,stage,portal,tokens,phaseUsed,phaseArmed,wallIgnoreArmed,freezeNext,holdSpace,holdMovesLeft,hasExtraLife,gameOver,deathCause }=snapshot;
+    trajectory.update(JSON.stringify({player,walls,enemies:enemies.map(({id,x,y,stunned,intent,intentLock})=>({id,x,y,stunned,intent,intentLock})),turns,stage,portal,tokens,phaseUsed,phaseArmed,wallIgnoreArmed,freezeNext,holdSpace,holdMovesLeft,hasExtraLife,gameOver,deathCause})+"\n");
+  }
+  record(s);
   async function send(action){
     const result=await run.dispatch(action);
     if(!result.accepted)throw new Error("Policy command rejected: "+JSON.stringify({seed,difficulty,strategy,action,turn:s.turns,stage:s.stage}));
+    if(action.type!=="wait")record(result.state);
     return result.state;
   }
   while(actions<maxActions&&!s.gameOver) {
@@ -131,22 +140,44 @@ async function simulate({seed,difficulty,strategy,maxActions=160,inputMs=1000}) 
   if(s.gameOver)reason=s.deathCause||"game-over";
   return {seed,difficulty,strategy,turns:s.turns,stage:s.stage,actions,clockMs:s.clockMs,
     outcome:reason,dead:s.gameOver,censored:!s.gameOver,waits,portalSpawns,portalEntries,unreachablePortals,rewardUses,
-    riskSamples,allImmediateRisk,adjacentPressureSum,pressureSamples};
+    riskSamples,allImmediateRisk,adjacentPressureSum,pressureSamples,trajectorySha256:trajectory.digest("hex")};
 }
 function quantile(values,p) {
   const sorted=[...values].sort((a,b)=>a-b);
   return sorted[Math.floor((sorted.length-1)*p)];
 }
 function summarize(rows){
+  const portalReached=rows.filter(r=>r.portalEntries>0).length;
   const sum=(k)=>rows.reduce((a,b)=>a+b[k],0);
   return {runs:rows.length,deaths:rows.filter(x=>x.dead).length,censored:rows.filter(x=>x.censored).length,
     turns:{p10:quantile(rows.map(x=>x.turns),.1),median:quantile(rows.map(x=>x.turns),.5),p90:quantile(rows.map(x=>x.turns),.9),max:Math.max(...rows.map(x=>x.turns))},
     stages:{median:quantile(rows.map(x=>x.stage),.5),max:Math.max(...rows.map(x=>x.stage))},
-    portalSpawns:sum("portalSpawns"),portalEntries:sum("portalEntries"),unreachablePortals:sum("unreachablePortals"),
+    portalReached,portalSpawns:sum("portalSpawns"),portalEntries:sum("portalEntries"),unreachablePortals:sum("unreachablePortals"),
     immediateRiskProxy:{samples:sum("riskSamples"),allCandidatesIntercepted:sum("allImmediateRisk")},
     meanAdjacentPressure:sum("pressureSamples")?sum("adjacentPressureSum")/sum("pressureSamples"):null,
     rewardUses:Object.fromEntries(Object.keys(rows[0].rewardUses).map(k=>[k,rows.reduce((a,b)=>a+b.rewardUses[k],0)])),
     outcomes:rows.reduce((a,b)=>(a[b.outcome]=(a[b.outcome]||0)+1,a),{})};
+}
+function compareDifficulties(rows) {
+  const results=[];
+  for(const strategy of STRATEGIES)for(const [left,right] of [["standard","hard"],["hard","hardcore"],["standard","hardcore"]]){
+    const a=rows.filter(r=>r.strategy===strategy&&r.difficulty===left);
+    const bySeed=new Map(rows.filter(r=>r.strategy===strategy&&r.difficulty===right).map(r=>[r.seed,r]));
+    const pairs=a.map(x=>[x,bySeed.get(x.seed)]);
+    if(pairs.some(([,y])=>!y))throw new Error("Unmatched seed");
+    const diffs=pairs.map(([x,y])=>y.turns-x.turns);
+    results.push({strategy,left,right,pairs:pairs.length,
+      shorter:pairs.filter(([x,y])=>y.turns<x.turns).length,
+      equal:pairs.filter(([x,y])=>y.turns===x.turns).length,
+      longer:pairs.filter(([x,y])=>y.turns>x.turns).length,
+      medianObservedTurnDelta:quantile(diffs,.5),
+      meanObservedTurnDelta:diffs.reduce((a,b)=>a+b,0)/pairs.length,
+      stageChanged:pairs.filter(([x,y])=>x.stage!==y.stage).length,
+      outcomeChanged:pairs.filter(([x,y])=>x.outcome!==y.outcome).length,
+      trajectoryChanged:pairs.filter(([x,y])=>x.trajectorySha256!==y.trajectorySha256).length,
+      bothDead:pairs.filter(([x,y])=>x.dead&&y.dead).length});
+  }
+  return results;
 }
 async function runMatrix({runs=3,startSeed=777,maxActions=100,inputMs=1000,revision="working-tree"}={}) {
   if(!Number.isInteger(runs)||runs<1||runs>10000||!Number.isInteger(startSeed)||startSeed<0||startSeed+runs-1>0xffffffff||
@@ -157,8 +188,8 @@ async function runMatrix({runs=3,startSeed=777,maxActions=100,inputMs=1000,revis
     for(let i=0;i<runs;i++)group.push(await simulate({seed:startSeed+i,difficulty,strategy,maxActions,inputMs}));
     rows.push(...group);groups.push({difficulty,strategy,...summarize(group)});
   }
-  return {schemaVersion:1,revision,config:{runsPerGroup:runs,startSeed,maxActions,inputMs,settings:core.DEFAULT_TUNING,
-    portalAccounting:"legacy-no-turn",clock:"deterministic-input-plus-engine-delay"},groups,rows,
+  return {schemaVersion:2,revision,config:{runsPerGroup:runs,startSeed,maxActions,inputMs,settings:core.DEFAULT_TUNING,
+    portalAccounting:"legacy-no-turn",clock:"deterministic-input-plus-engine-delay"},groups,matchedComparisons:compareDifficulties(rows),rows,
     elapsedMs:Math.round(performance.now()-started)};
 }
-module.exports={simulate,runMatrix,STRATEGIES,DIFFICULTIES};
+module.exports={simulate,runMatrix,compareDifficulties,STRATEGIES,DIFFICULTIES};
