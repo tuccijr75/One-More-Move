@@ -343,9 +343,10 @@ local function advanceStage(state: State)
 	if state.stage % Config.WallAddEveryStages == 0 then
 		state.wallCount = math.min(Config.WallMaximum, state.wallCount + 1)
 	end
-	local outgoingEnemies = state.enemies
-	state.walls = Grid.buildWalls(state.rng, state.player, outgoingEnemies, nil, state.wallCount, state.walls)
+	-- Match canonical stage regeneration: outgoing enemies do not constrain
+	-- new wall placement or alter the seeded random draw sequence.
 	state.enemies = {}
+	state.walls = Grid.buildWalls(state.rng, state.player, state.enemies, nil, state.wallCount, state.walls)
 	for _ = 1, enemyCountForStage(state.stage) do
 		spawnEnemy(state)
 	end

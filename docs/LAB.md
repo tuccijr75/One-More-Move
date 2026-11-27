@@ -99,3 +99,7 @@ The Luau Tactical Parity workflow now executes IntegrationCheck.lua after the ex
 ## Full-state parity diagnostic
 
 npm run lab:trace exports dist/lab/trace.json and TraceFixtures.lua. npm run lab:luau prepares these for TraceRunner.luau, executed after the unchanged strict tactical and command integration checks. Natural traces compare initial generation and accepted/rejected command outcomes, while forced chains isolate stage entry with explicit portal input. First divergence per run is reported, not waived. See TACTICS.md for scope. No production change.
+
+## Strict full-state regression
+
+TraceRunner now fails on any mismatch in the existing 36 natural and 12 forced traces and reports exact executed command/transition totals on success. This follows the direct stage-generation ordering correction in Roblox Simulation.lua. All fixture definitions and the frozen JavaScript oracle are unchanged. Prior diagnostic evidence is preserved at 4a8ab1147765a00ce3593d012026b3a82e65eb5b, workflow 46014246981. The new workflow uploads trace inputs even on failure. This gate does not certify all gameplay states or replace Studio execution.

@@ -45,9 +45,10 @@ jobs:
           cmake --build /tmp/luau/build --target Luau.Repl.CLI --parallel 2
       - name: Execute exact tactical decision parity
         run: /tmp/luau/build/luau dist/lab/luau/TacticalRunner.luau
-      - name: Audit full-state trace differences (diagnostic)
+      - name: Require full-state trace parity
         run: /tmp/luau/build/luau dist/lab/luau/TraceRunner.luau
       - name: Upload parity inputs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: one-more-move-luau-parity

@@ -74,3 +74,7 @@ Alternatively download the OneMoreMove-Tactical-Tests artifact from the successf
 ## Simulation qualification interface
 
 Simulation.applyCommand accepts an optional fourth argument, a trusted server-side planner function. Existing server calls omit it and retain Ai.plan. IntegrationCheck.lua injects the candidate only in the isolated qualification harness, comparing fixture-driven movement and ability routing; no client command may select it. CLI output includes INTEGRATION_PASS and Studio TACTICAL_PASS contains an integration receipt. Complete cross-runtime gameplay parity and actual Studio execution remain separate requirements.
+
+## Full-state stage parity
+
+The migration branch aligns stage regeneration with the canonical web runtime: clear outgoing enemies before generating new walls. The old Roblox implementation excluded their positions, causing deterministic divergence. The strict CLI trace gate checks 36 natural command traces and 12 forced stage chains, preserving first-mismatch diagnostics. The existing default AI remains selected in the playable server. No publish or gameplay approval is implied by the parity fix.

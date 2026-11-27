@@ -1,5 +1,5 @@
 --!nonstrict
--- Observational diagnostic: report first mismatches, never claim parity on divergent runs.
+-- Strict cross-runtime trace gate; report first mismatch per trace before failing.
 local Grid=require("./Grid")
 local Config=require("./Config")
 local Simulation=require("./Simulation")
@@ -90,4 +90,11 @@ local keys={}
 for k in pairs(fields) do table.insert(keys,k) end
 table.sort(keys)
 for _,k in ipairs(keys) do print("TRACE_FIELD "..k.."="..fields[k]) end
--- A completed audit is not a parity pass; no production gate is relaxed.
+local expectedCommands,expectedTransitions=0,0
+for _,run in ipairs(Corpus.naturalRuns) do expectedCommands+=#run.steps end
+for _,run in ipairs(Corpus.forcedRuns) do expectedTransitions+=#run.steps end
+assert(#Corpus.naturalRuns==36 and #Corpus.forcedRuns==12,"trace corpus coverage changed")
+assert(naturalDiverged==0 and forcedDiverged==0,"full-state trace divergence")
+assert(naturalCommands==expectedCommands and forcedTransitions==expectedTransitions,"incomplete trace execution")
+print(string.format("TRACE_PASS: %d natural runs, %d exact commands, %d forced chains, %d exact stage transitions",naturalMatched,naturalCommands,forcedMatched,forcedTransitions))
+-- The forced chains end at the supplied corpus boundary; they do not certify survival or portal generation.
