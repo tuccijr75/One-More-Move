@@ -51,3 +51,7 @@ Modularization at ba77563e5cbbb0e81d568de4f9403d4c6bcdbd2d passed the locked equ
 ## Tactical v2 screening
 
 V1 failed the difficulty-gradient criterion (see TACTICS.md). V2 replaces sequential candidate reservation with bounded joint assignment and leaves Standard as the baseline control. Re-run the same 900-run screen; the policy identifier is tactical-v2. V1 is retained in Git history, not as an additional runtime policy. The legacy parity gate continues to apply.
+
+## Held-out tactical evaluation
+
+V2 screening passed technical gates but did not establish monotonic difficulty. Run npm run lab:heldout for the predeclared independent seed set 10001–10100. The comparative artifact is dist/lab/held-out.json; it includes source provenance, all baseline and candidate rows, paired comparisons and finite-sample censoring bounds. The original screening artifact remains distinct. Default engine and legacy parity output are unchanged. See TACTICS.md for interpretation and promotion constraints.

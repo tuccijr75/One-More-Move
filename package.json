@@ -7,7 +7,7 @@
   "scripts": {
     "start": "electron .",
     "build": "npm run check && electron-builder --publish never",
-    "test": "node tests/core.test.js && node tests/stress.test.js && node tests/browser.test.js && node tests/runtime.test.js && node tests/parity.test.js && node tests/mobile-input.test.js && node tests/headless.test.js && node tests/lab.test.js && node tests/tactical.test.js",
+    "test": "node tests/core.test.js && node tests/stress.test.js && node tests/browser.test.js && node tests/runtime.test.js && node tests/parity.test.js && node tests/mobile-input.test.js && node tests/headless.test.js && node tests/lab.test.js && node tests/tactical.test.js && node tests/survival.test.js",
     "check": "node --check main.js && node --check app/grid.js && node --check app/ai.js && node --check app/config.js && node --check app/generation.js && node --check app/movement.js && node --check app/progression.js && node --check app/state.js && node --check app/storage.js && node --check app/presentation.js && node --check app/game.js && node --check app/touch-controls.js && node --check scripts/build-web.js && npm test && npm run build:web && npm run check:web && node --check scripts/neocities.js && node scripts/neocities.js",
     "build:web": "node scripts/build-web.js",
     "check:web": "node scripts/build-web.js --check",
@@ -17,7 +17,8 @@
     "lab:smoke": "node scripts/run-lab.js --runs=3 --max-actions=100",
     "lab:benchmark": "node scripts/run-lab.js --runs=100 --max-actions=160 --seed=777 --input-ms=1000",
     "refactor:check": "node tests/refactor.test.js",
-    "lab:tactical": "node scripts/run-tactical.js"
+    "lab:tactical": "node scripts/run-tactical.js",
+    "lab:heldout": "node scripts/run-tactical.js --held-out"
   },
   "build": {
     "appId": "com.tucci.onemoremove",
