@@ -52,3 +52,7 @@ Every gameplay command includes the client's expected `runId` and turn. A mismat
 ## Current boundary
 
 This foundation implements a complete solo run loop and cross-platform controls. Persistent Roblox profile data, global daily leaderboards, replay logs, same-seed duels, cosmetics, and a 3D social lobby are intentionally deferred until deterministic parity is accepted.
+
+## Experimental tactical parity contract
+
+The JavaScript v2/v4 candidates remain laboratory-only. Generate the frozen oracle from repository root with `npm run lab:fixtures`. CI artifact `one-more-move-ai-fixtures` contains `ai-fixtures.json` and generated `AiFixtures.lua`. Coordinates are zero-based, enemy array order is authoritative, IDs must not be reindexed, nil represents absent intent/portal fields. The test-only consumer must receive the supplied effective config and tuning, and compare the expected enemies, intent tiles and diagnostic ranks without modifying the current `Ai.plan` or server command path. Existing source differences are tracked in docs/TACTICS.md. Fixture generation is not execution of Roblox parity; the candidate port and Studio verification remain pending.

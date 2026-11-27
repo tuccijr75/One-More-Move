@@ -1,0 +1,46 @@
+name: Tactical Parity Fixtures
+
+on:
+  push:
+    branches:
+      - feat/omm-2-web-first
+    paths:
+      - app/ai.js
+      - app/grid.js
+      - app/config.js
+      - app/generation.js
+      - app/progression.js
+      - app/state.js
+      - app/game.js
+      - scripts/lab.js
+      - scripts/fixtures-ai.js
+      - .github/workflows/fixtures.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify frozen oracle source
+        run: git diff --exit-code 81e6a96a6af450b65e56c2a644f2be432f3410d2 HEAD -- app scripts/lab.js
+      - name: Generate cross-runtime golden decisions
+        run: npm run lab:fixtures
+      - name: Upload parity contract
+        uses: actions/upload-artifact@v4
+        with:
+          name: one-more-move-ai-fixtures
+          path: |
+            dist/lab/ai-fixtures.json
+            dist/lab/AiFixtures.lua
+          if-no-files-found: error

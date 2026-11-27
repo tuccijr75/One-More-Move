@@ -79,3 +79,7 @@ npm run lab:v4heldout writes dist/lab/v4-held-out.json and uses seeds 60001–60
 ## Stage qualification
 
 The v4 independent experiment passed its six predeclared descriptive criteria. The standalone AI Stage Qualification workflow runs npm run lab:qualify and writes dist/lab/qualification.json. It tests canonical stage-generation/transition component chains through stage 105 and frozen v2/v4 plans at selected thresholds; 24 seeds, 2,496 forced transitions, 2,520 generated portals, 2,160 matched planner inputs. No fabricated naturally survived high-stage runs. Full evidence and limitations in TACTICS.md. Live gameplay remains baseline.
+
+## Cross-runtime fixture contract
+
+npm run lab:fixtures exports a JSON and Luau golden-decision corpus with provenance, explicit effective configuration/tuning, ordered enemy state, and baseline/v2/v4 expected results. Separate Tactical Parity Fixtures workflow checks the frozen oracle source. It includes all 32 changed states from the existing audit, fixed controls, constructed cases and later-stage component inputs. See TACTICS.md. Export is preparation for parity execution, not proof of Luau equivalence.
