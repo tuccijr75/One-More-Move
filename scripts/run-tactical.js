@@ -10,7 +10,7 @@ const sourceFiles=["app/grid.js","app/ai.js","app/config.js","app/generation.js"
 const options={runs:30,startSeed:777,maxActions:160,inputMs:1000,revision,diagnostics:true};
 (async()=>{
   const baseline=await runMatrix({...options,enemyPolicy:"baseline"});
-  const candidate=await runMatrix({...options,enemyPolicy:"tactical-v1"});
+  const candidate=await runMatrix({...options,enemyPolicy:"tactical-v2"});
   const comparisons=baseline.groups.map(group=>{
     const a=baseline.rows.filter(r=>r.difficulty===group.difficulty&&r.strategy===group.strategy);
     const lookup=new Map(candidate.rows.filter(r=>r.difficulty===group.difficulty&&r.strategy===group.strategy).map(r=>[r.seed,r]));

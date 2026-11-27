@@ -13,6 +13,7 @@ const plan=s=>ai.planTacticalMovesForState(s,core.getEffectiveConfig(s.difficult
     const p=plan(s);
     assert.ok(p.resolvedMoves.some(e=>grid.samePosition(e,s.player)),"kill priority");
     assert.equal(p.diagnostics.horizon,ai.TACTICAL_HORIZONS[difficulty]);
+    if(difficulty==="standard") assert.deepEqual(p.resolvedMoves,core.planEnemyMovesForState(s).resolvedMoves,"Standard control unchanged");
     const stunned=state(difficulty,{enemies:[enemy(0,5,4,1)]});
     assert.deepEqual(plan(stunned).resolvedMoves[0],enemy(0,5,4,0),"stun must skip exactly one turn");
     const chase=state(difficulty,{walls:new Set(["4,3","4,4","4,5","4,6"]),enemies:[enemy(0,2,5)]});
@@ -33,11 +34,20 @@ const plan=s=>ai.planTacticalMovesForState(s,core.getEffectiveConfig(s.difficult
         assert.ok(!fixture.walls.has(grid.posKey(e)));
         assert.ok(grid.manhattan(e,old)<=1);
       });
-      const assigned=result.diagnostics.roles.filter(r=>r.role!=="pursuer"&&!grid.samePosition(r.target,fixture.player));
-      assert.equal(new Set(assigned.map(r=>grid.posKey(r.target))).size,assigned.length,"distinct corridor assignments");
+      if(difficulty!=="standard")assert.ok(result.diagnostics.combinations>0&&result.diagnostics.combinations<=5**fixture.enemies.length,"bounded exhaustive joint assignments");
     }
   }
-  const options={seed:777,difficulty:"hard",strategy:"tactical",maxActions:30,enemyPolicy:"tactical-v1",diagnostics:true};
+  for(const difficulty of ["hard","hardcore"]){
+    const crowded=state(difficulty,{enemies:[enemy(0,3,4),enemy(1,4,3)]});
+    const moves=plan(crowded).resolvedMoves;
+    assert.ok(moves.every((e,i)=>grid.manhattan(e,crowded.enemies[i])===1),"collision-free alternatives must avoid unnecessary holds");
+    assert.equal(new Set(moves.map(grid.posKey)).size,2);
+    const competing=state(difficulty,{enemies:[enemy(0,5,4),enemy(1,4,5)]});
+    assert.equal(plan(competing).resolvedMoves.filter(e=>grid.samePosition(e,competing.player)).length,1,"one immediate kill wins contested player tile");
+    const six=state(difficulty,{enemies:[enemy(0,1,1),enemy(1,2,2),enemy(2,3,3),enemy(3,7,7),enemy(4,8,8),enemy(5,9,9)]});
+    assert.ok(plan(six).diagnostics.combinations<=15625,"six-enemy search cap");
+  }
+  const options={seed:777,difficulty:"hard",strategy:"tactical",maxActions:30,enemyPolicy:"tactical-v2",diagnostics:true};
   assert.deepEqual(await simulate(options),await simulate(options),"candidate seeded trace deterministic");
   assert.throws(()=>core.createHeadlessRun({seed:1,enemyPolicy:"unknown"}),/Invalid enemy policy/);
   console.log("Tactical candidate invariant tests passed.");

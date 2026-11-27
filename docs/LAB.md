@@ -47,3 +47,7 @@ Movement and progression extraction at 48fba7e92bc1d252481b86587282b270e557a8e6 
 ## Phase 5 controlled experiments
 
 Modularization at ba77563e5cbbb0e81d568de4f9403d4c6bcdbd2d passed the locked equivalence gate and 1,500-run benchmark. See TACTICS.md for the Node-only tactical-v1 candidate and paired screening contract. Default baseline rows remain unchanged; the legacy equivalence gate continues to protect shipping behavior. No tactical parameters are promoted merely by a passing experiment.
+
+## Tactical v2 screening
+
+V1 failed the difficulty-gradient criterion (see TACTICS.md). V2 replaces sequential candidate reservation with bounded joint assignment and leaves Standard as the baseline control. Re-run the same 900-run screen; the policy identifier is tactical-v2. V1 is retained in Git history, not as an additional runtime policy. The legacy parity gate continues to apply.
