@@ -1,0 +1,17 @@
+# Simulation laboratory v0.1
+
+Purpose: compare player strategies and difficulty profiles using the canonical JavaScript engine, without browser, audio or real-time sleeps. This is measurement infrastructure, not an AI rebalance. Each run is isolated and uses the same real command and turn resolution functions as the browser.
+
+## Run
+
+Node 20+, no dependency installation required. Run `npm test` and `npm run lab:smoke`. The default smoke matrix uses 3 shared seeds x 5 strategies x 3 difficulty profiles = 45 runs. Per-run movement cap: 100 accepted movement/wait iterations. The full CLI supports `npm run lab -- --runs=10 --seed=777 --max-actions=160 --input-ms=1000`. A virtual clock advances by configured input pace and actual engine delay; waiting does not move enemies. This controls the 30-second cooldown without assuming it is turn-based. No 10,000-run experiment until profiling and review.
+
+## Policies
+
+Random: uniformly chooses unoccupied cardinal destinations. Greedy: maximizes immediate cardinal exits and clearance. Portal: prioritizes portal distance and exits. Defensive: evaluates the canonical enemy plan one step ahead. Tactical: evaluates the same plan, considers Focus movement routes and uses Freeze/Time Freeze under immediate predicted threat. Policies are intentionally constrained approximations, not optimal human play; non-tactical policies do not activate rewards. Tactical lookahead does not fully model reward effects, revival, spawns, or portal transitions, and its proxy is not a proof of forced death. Rejected policy commands fail the experiment.
+
+## Evidence
+
+`dist/lab/results.json` records engine revision, settings, seed, policy, outcomes, turns/stage distribution, censoring, portal spawns/entries/reachability, ability use, immediate-intercept proxy and adjacent enemy pressure. Per-run rows are retained. Unreachable portal observation and duplicate enemy positions fail the smoke gate. The immediate-risk proxy covers only the candidates examined by the policy; it is not an unavoidable-death rate. Adjacent pressure is a coarse proxy, not proof of coordination. A policy with no move may stop while the engine remains alive; such runs are censored. Do not report censored survival as a death. Quantiles summarize observed turns only, not uncensored survival probabilities. Record runtime separately from deterministic results. Shared seed sets permit matched comparisons; small smoke samples cannot establish difficulty balance or population-level fairness.
+
+Current portal entry scoring is preserved (stage advances without turn increment); portal accounting remains open. No user approval for new gameplay rules or public release is implied. Next: verify browser/headless command trace parity more extensively, profile larger runs, improve ability candidate predictions, add exact coordination instrumentation and confidence intervals, then compare approved baseline configurations.

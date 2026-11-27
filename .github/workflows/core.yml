@@ -32,3 +32,13 @@ jobs:
           name: one-more-move-web
           path: dist/web/
           if-no-files-found: error
+
+      - name: Run deterministic laboratory smoke matrix
+        run: npm run lab:smoke
+
+      - name: Upload laboratory evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: one-more-move-lab
+          path: dist/lab/results.json
+          if-no-files-found: error
