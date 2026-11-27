@@ -59,3 +59,7 @@ V2 screening passed technical gates but did not establish monotonic difficulty. 
 ## Containment comparison
 
 The held-out v2 receipt confirms meaningful Hard differentiation but weak Hardcore separation. Run npm run lab:containment for a new 3,000-run v2/v3 comparison on seeds 20001–20100. Report referencePolicy/candidatePolicy explicitly (the legacy report field baseline refers to v2 in this experiment). The result is dist/lab/containment.json. Standard and Hard are unchanged controls. The existing v2 screening and held-out runs remain reproducible; browser and legacy parity checks are unchanged. V3 is evaluation only.
+
+## Planner profiling
+
+npm run lab:profile writes dist/lab/profile.json. Separate CI workflow AI Planner Profile isolates computational and mechanism evidence from the survival experiment. The 120 synthetic fixtures and 720 timed planner invocations compare v2 and v3 under identical input, including the six-enemy upper bound. See TACTICS.md for limitations and interpretation.
