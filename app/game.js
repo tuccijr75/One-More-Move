@@ -72,6 +72,7 @@ const OMMCore = (() => {
   let audioContext = null;
   let animationRunning = false;
   let runSequence = 0;
+  let headlessRuntime = null;
   let memoryStore = {
     settings: {},
     difficulty: "standard",
@@ -835,8 +836,10 @@ const OMMCore = (() => {
 
     if (gameState.turns > gameState.best) {
       gameState.best = gameState.turns;
-      memoryStore.bestScores[getBestKey(gameState.seedMode, gameState.seed, gameState.difficulty)] = gameState.best;
-      saveMemoryStore();
+      if (!headlessRuntime) {
+        memoryStore.bestScores[getBestKey(gameState.seedMode, gameState.seed, gameState.difficulty)] = gameState.best;
+        saveMemoryStore();
+      }
     }
 
     if (gameState.turns >= gameState.nextSpawnTurn) {
@@ -863,11 +866,12 @@ const OMMCore = (() => {
     }
 
     gameState.gameOver = true;
+    gameState.deathCause = cause;
     gameState.effects.freezeUntil = performanceNow() + DEATH_FREEZE_MS;
     gameState.effects.killer = killer ? { x: killer.x, y: killer.y } : null;
     playDeathSound();
     render();
-    setTimeout(() => {
+    if (hasDOM) setTimeout(() => {
       if (!activeState(gameState)) return;
       showOverlay(cause);
     }, DEATH_FREEZE_MS);
@@ -915,6 +919,7 @@ const OMMCore = (() => {
       finalizeTurn(gameState);
       return true;
     } catch (error) {
+      if (headlessRuntime) throw error;
       console.error("Turn resolution failed", error);
       if (activeState(gameState)) setStatus(gameState, "TURN ERROR", 1500);
       return false;
@@ -995,8 +1000,13 @@ const OMMCore = (() => {
       return true;
     }
 
-    void resolveTurnAsync(gameState.runId);
+    queueTurn(gameState);
     return true;
+  }
+
+  function queueTurn(gameState) {
+    const turn = resolveTurnAsync(gameState.runId);
+    if (headlessRuntime) headlessRuntime.pending = turn;
   }
 
   function startGlobalCooldown(gameState) {
@@ -1067,7 +1077,7 @@ const OMMCore = (() => {
     gameState.holdMovesLeft = 2;
     gameState.holdStepsUsed = 0;
     updateHud();
-    if (used > 0 && !gameState.gameOver) void resolveTurnAsync(gameState.runId);
+    if (used > 0 && !gameState.gameOver) queueTurn(gameState);
     return true;
   }
 
@@ -1430,10 +1440,15 @@ const OMMCore = (() => {
   function playDeathSound() { playTone(80, 0.18, "sawtooth", 0.1); }
 
   function delay(milliseconds) {
+    if (headlessRuntime) {
+      headlessRuntime.now += milliseconds;
+      return Promise.resolve();
+    }
     return new Promise((resolve) => setTimeout(resolve, milliseconds));
   }
 
   function performanceNow() {
+    if (headlessRuntime) return headlessRuntime.now;
     return typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
   }
 
@@ -1445,6 +1460,66 @@ const OMMCore = (() => {
     if (!DEBUG || !gameState.portal) return;
     const reachable = reachableTilesFrom(gameState.player, gameState.walls);
     console.assert(reachable.has(posKey(gameState.portal)), "Portal must be reachable");
+  }
+
+  // Node-only runtime. Sequential isolated runs; canonical movement, AI, rewards and progression.
+  function createHeadlessRun({ seed, difficulty: selectedDifficulty = "standard", settings = DEFAULT_TUNING, inputMs = 1000 } = {}) {
+    if (hasDOM) throw new Error("Headless runtime is not available in browser play");
+    if (headlessRuntime?.busy) throw new Error("A headless command is still resolving");
+    if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff || !isDifficulty(selectedDifficulty)) {
+      throw new Error("Invalid seed or difficulty");
+    }
+    if (!Number.isInteger(inputMs) || inputMs < 0 || inputMs > 60000) throw new Error("Invalid input pace");
+    difficulty = selectedDifficulty;
+    tuning = sanitizeTuning({ ...DEFAULT_TUNING, ...settings });
+    const runtime = { now: 0, pending: null, busy: false };
+    headlessRuntime = runtime;
+    const gameState = initializeState(seed, "LAB");
+    gameState.best = 0;
+    state = gameState;
+    function assertActive() {
+      if (headlessRuntime !== runtime || !activeState(gameState)) throw new Error("Headless run is no longer active");
+    }
+    function snapshot() {
+      assertActive();
+      if (runtime.busy) throw new Error("Cannot snapshot a pending turn");
+      const { rng, runId, effects, ...fields } = gameState;
+      return JSON.parse(JSON.stringify({
+        ...fields,
+        walls: [...gameState.walls].sort(),
+        clockMs: runtime.now,
+        cooldownMs: Math.max(0, gameState.rewardCooldownUntil - runtime.now),
+      }));
+    }
+    async function dispatch(action) {
+      assertActive();
+      if (runtime.busy) throw new Error("Concurrent commands are not supported");
+      if (!action || typeof action !== "object") throw new Error("Invalid action");
+      if (gameState.gameOver) return { accepted: false, state: snapshot() };
+      runtime.busy = true;
+      try {
+        runtime.pending = null;
+        let accepted;
+        if (action.type === "wait") {
+          if (!Number.isInteger(action.ms) || action.ms < 1 || action.ms > 60000) throw new Error("Invalid wait");
+          runtime.now += action.ms;
+          accepted = true;
+        } else {
+          runtime.now += inputMs;
+          if (action.type === "move") accepted = attemptMove(action.dx, action.dy);
+          else if (action.type === "ability" && ["wall", "freeze", "phase", "time-start", "time-end"].includes(action.name)) {
+            accepted = runCommand(action.name);
+          } else throw new Error("Unsupported laboratory action");
+        }
+        if (runtime.pending) await runtime.pending;
+        if (gameState.inputLocked && !gameState.gameOver) throw new Error("Turn failed to unlock");
+        runtime.busy = false;
+        return { accepted, state: snapshot() };
+      } finally {
+        runtime.busy = false;
+      }
+    }
+    return Object.freeze({ snapshot, dispatch });
   }
 
   function boot() {
@@ -1481,6 +1556,7 @@ const OMMCore = (() => {
     resolveEnemyDestinations,
     chooseRevivalTile,
     initializeState,
+    createHeadlessRun,
     boot,
   };
 })();
