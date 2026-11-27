@@ -60,3 +60,13 @@ The JavaScript v2/v4 candidates remain laboratory-only. Generate the frozen orac
 ## Standalone tactical conformance
 
 `roblox/tests/Tactical.lua` is an isolated candidate port of the frozen JavaScript baseline/v2/v4 policies. Generate CLI inputs using `npm run lab:luau` from the repository root, then run `luau dist/lab/luau/TacticalRunner.luau` with official Luau 0.730. The generated copies adapt only module import addressing; the source Grid and live Ai modules are unchanged. The runner asserts all 1,125 expected decisions and repeats them, including all 32 actual changed states. The separate workflow executes the CLI tests; it does not run Studio or integrate the candidate into Simulation. The playable server still uses the existing Ai.plan.
+
+## Studio tactical qualification (test only)
+
+From repository root, with Rojo 7.6.1 installed:
+
+```powershell
+npm run lab:studio
+```
+
+Alternatively download the OneMoreMove-Tactical-Tests artifact from the successful Roblox Validation workflow. Open OneMoreMoveTactical.rbxlx in Roblox Studio, open the Output panel and select Run (server simulation). Do not publish the place. The test script runs the same 375 fixtures and 1,125 exact decisions plus repeats as the CLI; progress appears periodically. Success is one TACTICAL_PASS JSON receipt and the TacticalStudio script Result attribute PASS. Failure is TACTICAL_FAIL with the exact fixture/field and Result FAIL. Preserve the complete receipt for review. The separate playable place and existing regression test place are unchanged; this test does not route commands through Simulation.

@@ -87,3 +87,7 @@ npm run lab:fixtures exports a JSON and Luau golden-decision corpus with provena
 ## Luau execution gate
 
 npm run lab:luau generates dist/lab/luau/ from the frozen fixture corpus and canonical Roblox grid modules. The standalone Luau Tactical Parity workflow executes TacticalRunner.luau using official Luau 0.730, comparing all 375 fixtures across three policies with exact replay and reporting existing Roblox baseline differences. The generated CLI import adaptation does not change source or playable runtime. See TACTICS.md.
+
+## Studio tactical check
+
+The CLI and separate Studio test place now consume the same TacticalCheck.lua assertions and candidate. npm run lab:studio creates dist/lab/OneMoreMoveTactical.rbxlx using Rojo 7.6.1 and the generated oracle. The Roblox Validation workflow also builds a downloadable OneMoreMove-Tactical-Tests artifact. Studio execution is manual; its TACTICAL_PASS JSON receipt reports oracle revision, counts, legacy differences by difficulty and elapsed time, not real-time performance. Do not record a Studio pass until the actual receipt is observed.

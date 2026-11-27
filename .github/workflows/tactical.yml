@@ -9,6 +9,7 @@ on:
       - roblox/src/shared/**
       - roblox/tests/Tactical.lua
       - roblox/tests/TacticalRunner.lua
+      - roblox/tests/TacticalCheck.lua
       - scripts/lab.js
       - scripts/fixtures-ai.js
       - scripts/luau-fixtures.js

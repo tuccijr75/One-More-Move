@@ -15,6 +15,6 @@ for(const name of ["Config","Rng","Grid","Ai"]){
   assert.equal(cli.replace(/require\("\.\/([A-Za-z]+)"\)/g,(_,dep)=>"require(script.Parent."+dep+")"),src,"non-import source transformation");
   fs.writeFileSync(path.join(out,name+".luau"),cli);
 }
-for(const name of ["Tactical","TacticalRunner"])fs.copyFileSync(path.join(root,"roblox/tests",name+".lua"),path.join(out,name+".luau"));
+for(const name of ["Tactical","TacticalCheck","TacticalRunner"])fs.copyFileSync(path.join(root,"roblox/tests",name+".lua"),path.join(out,name+".luau"));
 fs.copyFileSync(path.join(root,"dist/lab/AiFixtures.lua"),path.join(out,"AiFixtures.luau"));
 console.log("Standalone Luau fixture directory generated; shipping sources unchanged.");
