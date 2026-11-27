@@ -21,11 +21,11 @@ function prepare() {
     throw new Error("Invalid web manifest");
   }
   const names = Object.keys(manifest.files).sort();
-  for (const required of ["index.html", "grid.js", "game.js", "style.css", "touch-controls.js"]) {
+  for (const required of ["index.html", "grid.js", "ai.js", "game.js", "style.css", "touch-controls.js"]) {
     if (!names.includes(required)) throw new Error("Missing required file: " + required);
   }
   const files = names.map(name => {
-    if (!/^(index\.html|grid\.js|game\.js|style\.css|touch-controls\.js|assets\/[A-Za-z0-9 _.-]+\.(png|jpg|jpeg|svg|webp|ico))$/i.test(name)
+    if (!/^(index\.html|grid\.js|ai\.js|game\.js|style\.css|touch-controls\.js|assets\/[A-Za-z0-9 _.-]+\.(png|jpg|jpeg|svg|webp|ico))$/i.test(name)
         || name.includes("..")) throw new Error("Refusing unexpected deployment path: " + name);
     const bytes = fs.readFileSync(path.join(DIRECTORY, name));
     if (digest(bytes) !== manifest.files[name]) throw new Error("File digest mismatch: " + name);

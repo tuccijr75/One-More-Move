@@ -27,4 +27,4 @@ A successful dry run is not an upload. An authenticated success receipt and live
 
 ## Module migration
 
-Starting with the grid extraction, upload `grid.js` before replacing `index.html` and `game.js`; all other files and the manifest must come from the same verified web artifact. No new credential storage. GitHub, including Actions secrets, must never hold API keys. The owner-uploaded previous baseline is operational; a new upload and device smoke test are required for each candidate.
+Starting with the grid extraction, upload `grid.js` and `ai.js` before replacing `game.js` and then `index.html`; all other files and the manifest must come from the same verified web artifact. No new credential storage. GitHub, including Actions secrets, must never hold API keys. The owner-uploaded previous baseline is operational; a new upload and device smoke test are required for each candidate.

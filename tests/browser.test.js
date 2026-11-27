@@ -101,7 +101,9 @@ const context = {
 
 vm.createContext(context);
 const gridSource = fs.readFileSync(require.resolve("../app/grid.js"), "utf8");
+const aiSource = fs.readFileSync(require.resolve("../app/ai.js"), "utf8");
 vm.runInContext(gridSource, context);
+vm.runInContext(aiSource, context);
 vm.runInContext(fs.readFileSync(require.resolve("../app/game.js"), "utf8"), context);
 
 assert.equal(typeof windowObject.__ommGetState, "function", "browser boot must expose state access");
@@ -122,6 +124,7 @@ function bootWithStorage(raw, inaccessible = false) {
   };
   const sandbox = vm.createContext({ ...context, window: browser });
   vm.runInContext(gridSource, sandbox);
+  vm.runInContext(aiSource, sandbox);
   vm.runInContext(source, sandbox);
   return { api: browser, state: browser.__ommGetState(), backing };
 }

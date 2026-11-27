@@ -89,6 +89,7 @@ function createBrowser() {
   };
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(require.resolve("../app/grid.js"), "utf8"), sandbox);
+  vm.runInContext(fs.readFileSync(require.resolve("../app/ai.js"), "utf8"), sandbox);
   vm.runInContext(fs.readFileSync(require.resolve("../app/game.js"), "utf8"), sandbox);
   return { window: windowObject };
 }

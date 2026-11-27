@@ -7,6 +7,7 @@ on:
     paths:
       - app/game.js
       - app/grid.js
+      - app/ai.js
       - scripts/lab.js
       - scripts/run-lab.js
       - .github/workflows/lab.yml

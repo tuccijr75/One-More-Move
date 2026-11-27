@@ -5,7 +5,8 @@ Owner-approved target: one responsive browser game, used on desktop, phones and 
 ## Active source and outputs
 
 - `app/game.js`: canonical gameplay runtime.
-- `app/grid.js`: canonical grid and pathfinding module, loaded before game.js in browser and required by Node.
+- `app/grid.js`: canonical grid and pathfinding module.
+- `app/ai.js`: canonical enemy policy, interception assignment and collision resolution; receives runtime configuration and tuning explicitly. Load grid.js, ai.js, then game.js.
 - `app/index.html`, `app/style.css`, `app/touch-controls.js`, `app/assets/`: canonical browser presentation.
 - `dist/web/`: generated, checked standalone HTML5 release directory; zip its contents with index.html at root for itch.io.
 - Electron `main.js`: loads the same canonical app/index.html for Game Jolt desktop packaging; no platform-copy engine.

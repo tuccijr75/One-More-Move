@@ -91,8 +91,7 @@ When I propose edits, I must:
 ## 3) Architecture Rules (How We Structure the Code)
 
 ### 3.1 Canonical modules (2.0 migration)
-Retain clearly labeled sections in the runtime until each module is extracted and independently verified. Grid geometry/pathfinding belongs to `app/grid.js` (shared browser and Node source). Remaining runtime sections include:
-- `/* AI POLICY */`
+Retain clearly labeled sections in the runtime until each module is extracted and independently verified. Grid geometry/pathfinding belongs to `app/grid.js`; enemy policy and destination resolution belong to `app/ai.js` (shared browser and Node sources). Remaining runtime sections include:
 - `/* STAGES & PORTAL */`
 - `/* DEBUG / ASSERTS */`
 
