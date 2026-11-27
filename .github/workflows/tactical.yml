@@ -14,6 +14,8 @@ on:
       - scripts/lab.js
       - scripts/fixtures-ai.js
       - scripts/luau-fixtures.js
+      - scripts/trace-parity.js
+      - roblox/tests/TraceRunner.lua
       - .github/workflows/tactical.yml
   workflow_dispatch:
 
@@ -43,9 +45,13 @@ jobs:
           cmake --build /tmp/luau/build --target Luau.Repl.CLI --parallel 2
       - name: Execute exact tactical decision parity
         run: /tmp/luau/build/luau dist/lab/luau/TacticalRunner.luau
+      - name: Audit full-state trace differences (diagnostic)
+        run: /tmp/luau/build/luau dist/lab/luau/TraceRunner.luau
       - name: Upload parity inputs
         uses: actions/upload-artifact@v4
         with:
           name: one-more-move-luau-parity
-          path: dist/lab/ai-fixtures.json
+          path: |
+            dist/lab/ai-fixtures.json
+            dist/lab/trace.json
           if-no-files-found: error

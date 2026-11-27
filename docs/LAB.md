@@ -95,3 +95,7 @@ The CLI and separate Studio test place now consume the same TacticalCheck.lua as
 ## Command integration gate
 
 The Luau Tactical Parity workflow now executes IntegrationCheck.lua after the exact planner corpus. The optional trusted server planner parameter is exercised only by tests; production uses its original default. Reports fixture-command count, skips, changed cases, ability dispatch cases and 1,080 default/explicit-legacy command pairs. The isolated Studio place runs the same check and includes its result in TACTICAL_PASS. This is not full game simulation parity.
+
+## Full-state parity diagnostic
+
+npm run lab:trace exports dist/lab/trace.json and TraceFixtures.lua. npm run lab:luau prepares these for TraceRunner.luau, executed after the unchanged strict tactical and command integration checks. Natural traces compare initial generation and accepted/rejected command outcomes, while forced chains isolate stage entry with explicit portal input. First divergence per run is reported, not waived. See TACTICS.md for scope. No production change.

@@ -26,8 +26,9 @@
     "lab:v4heldout": "node scripts/run-tactical.js --v4-held-out",
     "lab:qualify": "node scripts/qualify-ai.js",
     "lab:fixtures": "node scripts/fixtures-ai.js",
-    "lab:luau": "npm run lab:fixtures && node scripts/luau-fixtures.js",
-    "lab:studio": "npm run lab:fixtures && rojo build roblox/tactical.project.json --output dist/lab/OneMoreMoveTactical.rbxlx"
+    "lab:luau": "npm run lab:fixtures && npm run lab:trace && node scripts/luau-fixtures.js",
+    "lab:studio": "npm run lab:fixtures && rojo build roblox/tactical.project.json --output dist/lab/OneMoreMoveTactical.rbxlx",
+    "lab:trace": "node scripts/trace-parity.js"
   },
   "build": {
     "appId": "com.tucci.onemoremove",

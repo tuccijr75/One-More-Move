@@ -18,3 +18,7 @@ for(const name of ["Config","Rng","Grid","Ai","Simulation"]){
 for(const name of ["Tactical","TacticalCheck","TacticalRunner","IntegrationCheck"])fs.copyFileSync(path.join(root,"roblox/tests",name+".lua"),path.join(out,name+".luau"));
 fs.copyFileSync(path.join(root,"dist/lab/AiFixtures.lua"),path.join(out,"AiFixtures.luau"));
 console.log("Standalone Luau fixture directory generated; shipping sources unchanged.");
+
+// Separate full-state diagnostic runner; existing strict fixture assertions unchanged.
+fs.copyFileSync(path.join(root,"roblox/tests/TraceRunner.lua"),path.join(out,"TraceRunner.luau"));
+fs.copyFileSync(path.join(root,"dist/lab/TraceFixtures.lua"),path.join(out,"TraceFixtures.luau"));
