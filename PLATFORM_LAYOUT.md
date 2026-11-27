@@ -4,7 +4,8 @@ Owner-approved target: one responsive browser game, used on desktop, phones and 
 
 ## Active source and outputs
 
-- `app/game.js`: canonical gameplay engine; unchanged in the first migration slice.
+- `app/game.js`: canonical gameplay runtime.
+- `app/grid.js`: canonical grid and pathfinding module, loaded before game.js in browser and required by Node.
 - `app/index.html`, `app/style.css`, `app/touch-controls.js`, `app/assets/`: canonical browser presentation.
 - `dist/web/`: generated, checked standalone HTML5 release directory; zip its contents with index.html at root for itch.io.
 - Electron `main.js`: loads the same canonical app/index.html for Game Jolt desktop packaging; no platform-copy engine.
@@ -16,4 +17,4 @@ Legacy `app/web`, `app/ios`, `app/android`, Capacitor config and old iOS notes a
 
 ## Development test hosting
 
-Owner-approved destination: https://manicmike.neocities.org/omm/ (pending authenticated upload and live verification). No Vercel dependency. See [NEOCITIES.md](docs/NEOCITIES.md) for scoped deployment and verification.
+Owner-approved destination: https://manicmike.neocities.org/omm/ (owner uploaded baseline 5750f344; page and manifest retrieved successfully, remote byte parity and newer device retest pending). No Vercel dependency. See [NEOCITIES.md](docs/NEOCITIES.md) for scoped deployment and verification.

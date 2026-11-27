@@ -17,6 +17,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -25,6 +28,9 @@ jobs:
 
       - name: Validate source
         run: npm run check
+
+      - name: Verify refactor against locked benchmark baseline
+        run: npm run refactor:check
 
       - name: Upload verified web distribution
         uses: actions/upload-artifact@v4

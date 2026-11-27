@@ -24,3 +24,7 @@ The command rebuilds and runs tests, verifies the manifest, verifies the authent
 ## Evidence and gates
 
 A successful dry run is not an upload. An authenticated success receipt and live mobile smoke test are required before marking Neocities operational. AICS and all other directories are excluded. Deployment approval is for the test directory only. No itch.io/Game Jolt changes or main-branch merge.
+
+## Module migration
+
+Starting with the grid extraction, upload `grid.js` before replacing `index.html` and `game.js`; all other files and the manifest must come from the same verified web artifact. No new credential storage. GitHub, including Actions secrets, must never hold API keys. The owner-uploaded previous baseline is operational; a new upload and device smoke test are required for each candidate.
