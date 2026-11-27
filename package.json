@@ -23,7 +23,8 @@
     "lab:profile": "node scripts/profile-ai.js",
     "lab:adversarial": "node scripts/run-tactical.js --adversarial",
     "lab:audit": "node scripts/audit-ai.js",
-    "lab:v4heldout": "node scripts/run-tactical.js --v4-held-out"
+    "lab:v4heldout": "node scripts/run-tactical.js --v4-held-out",
+    "lab:qualify": "node scripts/qualify-ai.js"
   },
   "build": {
     "appId": "com.tucci.onemoremove",

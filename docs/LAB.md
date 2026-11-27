@@ -75,3 +75,7 @@ npm run lab:audit writes dist/lab/audit.json and runs in the separate AI Decisio
 ## Independent v4 confirmation
 
 npm run lab:v4heldout writes dist/lab/v4-held-out.json and uses seeds 60001–60100. The standalone Adversarial Confirmation workflow locks planner/simulation sources at be63c381ee44c8b6207cdfb1bf299cafad816369, runs deterministic tests and the legacy equivalence gate, then evaluates 3,000 runs. The artifact includes raw rows, source hashes, matched thresholds and the predeclared descriptive evaluation flags. The console includes v4-v2 tactical threshold bounds, adjacent difficulty bounds and each advancement criterion. Standard/Hard controls now require full row equality in the comparative runner. See TACTICS.md; no gameplay candidate is adopted by this experiment.
+
+## Stage qualification
+
+The v4 independent experiment passed its six predeclared descriptive criteria. The standalone AI Stage Qualification workflow runs npm run lab:qualify and writes dist/lab/qualification.json. It tests canonical stage-generation/transition component chains through stage 105 and frozen v2/v4 plans at selected thresholds; 24 seeds, 2,496 forced transitions, 2,520 generated portals, 2,160 matched planner inputs. No fabricated naturally survived high-stage runs. Full evidence and limitations in TACTICS.md. Live gameplay remains baseline.
