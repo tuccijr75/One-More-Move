@@ -8,7 +8,9 @@ Owner-approved target: one responsive browser game, used on desktop, phones and 
 - `app/grid.js`: canonical grid and pathfinding module.
 - `app/ai.js`: canonical enemy policy, interception assignment and collision resolution; receives runtime configuration and tuning explicitly. 
 - `app/config.js`: immutable profiles, tuning validation and effective configuration.
-- `app/generation.js`: seeded RNG, wall and enemy placement, portal generation and revival selection. Load grid.js, ai.js, config.js, generation.js, then game.js.
+- `app/generation.js`: seeded RNG, wall and enemy placement, portal generation and revival selection. 
+- `app/movement.js`: movement legality, Focus activations, cooldowns and escape adjudication; runtime hooks handle effects and turn scheduling.
+- `app/progression.js`: stage transitions, completed-turn accounting, rewards and spawn scheduling; runtime hooks retain score persistence and display. Load grid.js, ai.js, config.js, generation.js, movement.js, progression.js, then game.js.
 - `app/index.html`, `app/style.css`, `app/touch-controls.js`, `app/assets/`: canonical browser presentation.
 - `dist/web/`: generated, checked standalone HTML5 release directory; zip its contents with index.html at root for itch.io.
 - Electron `main.js`: loads the same canonical app/index.html for Game Jolt desktop packaging; no platform-copy engine.

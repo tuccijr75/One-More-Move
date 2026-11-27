@@ -10,6 +10,8 @@ on:
       - app/ai.js
       - app/config.js
       - app/generation.js
+      - app/movement.js
+      - app/progression.js
       - scripts/lab.js
       - scripts/run-lab.js
       - .github/workflows/lab.yml

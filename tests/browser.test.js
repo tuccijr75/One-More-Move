@@ -104,10 +104,14 @@ const gridSource = fs.readFileSync(require.resolve("../app/grid.js"), "utf8");
 const aiSource = fs.readFileSync(require.resolve("../app/ai.js"), "utf8");
 const configSource = fs.readFileSync(require.resolve("../app/config.js"), "utf8");
 const generationSource = fs.readFileSync(require.resolve("../app/generation.js"), "utf8");
+const movementSource = fs.readFileSync(require.resolve("../app/movement.js"), "utf8");
+const progressionSource = fs.readFileSync(require.resolve("../app/progression.js"), "utf8");
 vm.runInContext(gridSource, context);
 vm.runInContext(aiSource, context);
 vm.runInContext(configSource, context);
 vm.runInContext(generationSource, context);
+vm.runInContext(movementSource, context);
+vm.runInContext(progressionSource, context);
 vm.runInContext(fs.readFileSync(require.resolve("../app/game.js"), "utf8"), context);
 
 assert.equal(typeof windowObject.__ommGetState, "function", "browser boot must expose state access");
@@ -131,6 +135,8 @@ function bootWithStorage(raw, inaccessible = false) {
   vm.runInContext(aiSource, sandbox);
   vm.runInContext(configSource, sandbox);
   vm.runInContext(generationSource, sandbox);
+  vm.runInContext(movementSource, sandbox);
+  vm.runInContext(progressionSource, sandbox);
   vm.runInContext(source, sandbox);
   return { api: browser, state: browser.__ommGetState(), backing };
 }
