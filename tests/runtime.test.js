@@ -172,6 +172,27 @@ function wait(ms) {
     assert.equal(state.portal, null, "portal must clear on stage advance");
   }
 
+  {
+    api.__ommCommand("new");
+    const state = api.__ommGetState();
+    state.player = { x: 5, y: 5 };
+    state.walls.clear();
+    state.enemies = [];
+    state.tokens.diag = 1;
+    state.rewardCooldownUntil = Date.now() + 30000;
+    const cooldown = state.rewardCooldownUntil;
+    assert.equal(api.__ommMove(1, 1), false, "global cooldown must block diagonal reward");
+    assert.equal(state.tokens.diag, 1, "blocked diagonal must preserve reward");
+    assert.equal(state.rewardCooldownUntil, cooldown, "blocked diagonal must preserve cooldown");
+    assert.equal(api.__ommMove(2, 0), false, "multi-tile input must not bypass movement rules");
+    assert.equal(state.player.x, 5);
+    assert.equal(state.player.y, 5);
+    state.rewardCooldownUntil = 0;
+    assert.equal(api.__ommMove(1, 1), true, "diagonal must work when cooldown has expired");
+    assert.equal(state.tokens.diag, 0);
+    await wait(260);
+  }
+
   console.log("One More Move asynchronous runtime tests passed.");
 })().catch((error) => {
   console.error(error);

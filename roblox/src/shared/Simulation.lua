@@ -357,6 +357,9 @@ local function move(state: State, dx: number, dy: number, now: number): (boolean
 	if diagonal and state.tokens.diag <= 0 then
 		return false, "diagonal unavailable"
 	end
+	if diagonal and now < state.cooldownUntil then
+		return false, "ability cooldown"
+	end
 	local destination = { x = state.player.x + dx, y = state.player.y + dy }
 	if not Grid.inBounds(destination) then
 		return false, "out of bounds"

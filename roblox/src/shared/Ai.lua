@@ -238,7 +238,7 @@ local function resolve(state: StateView, proposals: { Proposal }): { Enemy }
 	local result: { Enemy } = {}
 	local occupied: PositionSet = {}
 	for index, enemy in state.enemies do
-		local nextEnemy = if moving[index] then proposals[index].nextEnemy else stationaryEnemy(enemy)
+		local nextEnemy = if moving[index] or Grid.same(proposals[index].target, enemy) then proposals[index].nextEnemy else stationaryEnemy(enemy)
 		local key = Grid.key(nextEnemy)
 		assert(not occupied[key], "duplicate enemy destination")
 		occupied[key] = true

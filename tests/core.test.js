@@ -77,4 +77,16 @@ function baseState(overrides = {}) {
   assert.ok(reachable.size >= 35, "dense wall layouts must preserve a meaningful reachable region");
 }
 
+{
+  const state = baseState({
+    player: { x: 5, y: 5 },
+    enemies: [{ id: 0, x: 5, y: 4, stunned: 1, intent: null, intentLock: 0 }],
+  });
+  state.enemies = core.planEnemyMovesForState(state).resolvedMoves;
+  assert.equal(state.enemies[0].stunned, 0, "a one-turn stun must expire after the skipped enemy turn");
+  assert.equal(state.enemies[0].y, 4, "stunned enemy must not move");
+  const next = core.planEnemyMovesForState(state).resolvedMoves[0];
+  assert.equal(next.y, 5, "enemy must resume kill-first pursuit on the following turn");
+}
+
 console.log("One More Move core tests passed.");

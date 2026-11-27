@@ -161,7 +161,40 @@ local function testCollisionStress()
 	end
 end
 
+local function testStunExpiry()
+	local view = {
+		player = { x = 5, y = 5 },
+		walls = {},
+		enemies = {{ id = 0, x = 5, y = 4, stunned = 1, intentX = nil, intentY = nil, intentLock = 0 }},
+		difficulty = "standard",
+		allowDiagonalEscape = false,
+	}
+	local first = Ai.plan(view)
+	expect(first[1].stunned == 0 and first[1].y == 4, "stun did not expire after stationary turn")
+	local next = Ai.plan({
+		player = view.player, walls = view.walls, enemies = first,
+		difficulty = "standard", allowDiagonalEscape = false,
+	})
+	expect(next[1].y == 5, "enemy did not resume pursuit")
+end
+
+local function testDiagonalCooldown()
+	local state = Simulation.newRun(15, "standard", "TEST", 1)
+	state.player = { x = 5, y = 5 }
+	state.walls = {}
+	state.enemies = {}
+	state.tokens.diag = 1
+	state.cooldownUntil = 31
+	local accepted = Simulation.applyCommand(state, { type = "move", dx = 1, dy = 1 }, 1)
+	expect(not accepted, "diagonal bypassed global cooldown")
+	expect(state.tokens.diag == 1 and state.cooldownUntil == 31, "rejected diagonal changed reward or cooldown")
+	local moved = Simulation.applyCommand(state, { type = "move", dx = 1, dy = 1 }, 31)
+	expect(moved and state.tokens.diag == 0, "diagonal was not available after cooldown")
+end
+
 local tests = {
+	StunExpiry = testStunExpiry,
+	DiagonalCooldown = testDiagonalCooldown,
 	RngParity = testRngParity,
 	SeedDeterminism = testSeedDeterminism,
 	KillPriority = testKillPriority,

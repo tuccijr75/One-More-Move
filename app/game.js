@@ -527,7 +527,9 @@ const OMMCore = (() => {
     }
 
     const resolved = current.map((enemy, index) => {
-      if (!moving.has(index)) return { ...enemy, intent: null, intentLock: 0 };
+      if (!moving.has(index)) return samePosition(proposals[index].target, enemy)
+        ? { ...proposals[index].nextEnemy }
+        : { ...enemy, intent: null, intentLock: 0 };
       return { ...proposals[index].nextEnemy };
     });
 
@@ -878,7 +880,7 @@ const OMMCore = (() => {
     const gameState = state;
     if (!gameState || gameState.gameOver || gameState.inputLocked) return false;
     if (gameState.holdSpace && gameState.holdMovesLeft <= 0) return false;
-    if (!Number.isInteger(dx) || !Number.isInteger(dy) || (dx === 0 && dy === 0)) return false;
+    if (!Number.isInteger(dx) || !Number.isInteger(dy) || Math.abs(dx) > 1 || Math.abs(dy) > 1 || (dx === 0 && dy === 0)) return false;
 
     if (gameState.phaseArmed) {
       if (dx !== 0 && dy !== 0) return false;
@@ -898,7 +900,7 @@ const OMMCore = (() => {
     }
 
     const isDiagonal = dx !== 0 && dy !== 0;
-    if (isDiagonal && gameState.tokens.diag <= 0) return false;
+    if (isDiagonal && (gameState.tokens.diag <= 0 || !abilityReady(gameState))) return false;
     const destination = { x: gameState.player.x + dx, y: gameState.player.y + dy };
     if (!inBounds(destination.x, destination.y)) return false;
 
