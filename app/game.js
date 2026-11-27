@@ -87,12 +87,27 @@ const OMMCore = (() => {
     return `one-more-move-tuning-v${SETTINGS_VERSION}`;
   }
 
+  function isDifficulty(value) {
+    return typeof value === "string" && Object.prototype.hasOwnProperty.call(BASE_DIFFICULTY_CONFIG, value);
+  }
+
+  function isRecord(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+
   function normalizeMemoryStore(value) {
-    if (!value || typeof value !== "object") return;
-    if (value.settings && typeof value.settings === "object") memoryStore.settings = value.settings;
-    if (BASE_DIFFICULTY_CONFIG[value.difficulty]) memoryStore.difficulty = value.difficulty;
-    if (value.bestScores && typeof value.bestScores === "object") memoryStore.bestScores = value.bestScores;
-    memoryStore.muted = Boolean(value.muted);
+    if (!isRecord(value)) return;
+    if (isRecord(value.settings)) memoryStore.settings = Object.assign(Object.create(null), value.settings);
+    if (isDifficulty(value.difficulty)) memoryStore.difficulty = value.difficulty;
+    if (isRecord(value.bestScores)) {
+      const scores = Object.create(null);
+      for (const [key, raw] of Object.entries(value.bestScores)) {
+        const score = typeof raw === "number" || (typeof raw === "string" && /^\d+$/.test(raw)) ? Number(raw) : NaN;
+        if (Number.isSafeInteger(score) && score >= 0) scores[key] = score;
+      }
+      memoryStore.bestScores = scores;
+    }
+    if (typeof value.muted === "boolean") memoryStore.muted = value.muted;
   }
 
   function loadMemoryStore() {
@@ -389,7 +404,7 @@ const OMMCore = (() => {
   ========================= */
 
   function getEffectiveConfig(selectedDifficulty, stage, selectedTuning) {
-    const base = BASE_DIFFICULTY_CONFIG[selectedDifficulty] || BASE_DIFFICULTY_CONFIG.standard;
+    const base = isDifficulty(selectedDifficulty) ? BASE_DIFFICULTY_CONFIG[selectedDifficulty] : BASE_DIFFICULTY_CONFIG.standard;
     const level = Math.max(1, stage || 1);
     const pressure = Math.min(1.3, 1 + 0.02 * (level - 1));
     const speed = Math.max(0.8, 1 - 0.008 * (level - 1));
@@ -1057,7 +1072,7 @@ const OMMCore = (() => {
   }
 
   function setDifficulty(nextDifficulty) {
-    if (!BASE_DIFFICULTY_CONFIG[nextDifficulty]) return false;
+    if (!isDifficulty(nextDifficulty)) return false;
     if (state && !state.gameOver) {
       setStatus(state, "DIFFICULTY CHANGES AFTER RUN", 1200);
       return false;
@@ -1436,7 +1451,7 @@ const OMMCore = (() => {
     if (!hasDOM) return;
     cacheUI();
     loadMemoryStore();
-    difficulty = BASE_DIFFICULTY_CONFIG[memoryStore.difficulty] ? memoryStore.difficulty : "standard";
+    difficulty = isDifficulty(memoryStore.difficulty) ? memoryStore.difficulty : "standard";
     muted = memoryStore.muted;
     tuning = loadTuning();
     bindUI();

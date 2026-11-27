@@ -107,4 +107,44 @@ assert.equal(typeof windowObject.__ommMove, "function", "browser boot must expos
 assert.equal(typeof windowObject.__ommCommand, "function", "browser boot must expose commands");
 assert.equal(windowObject.__ommGetState().seed, 1234, "browser boot must create the initial run");
 
+// Isolate each boot to verify recovery without leaking globals between runs.
+const source = fs.readFileSync(require.resolve("../app/game.js"), "utf8");
+function bootWithStorage(raw, inaccessible = false) {
+  const backing = new Map([["one-more-move-memory-v2", raw]]);
+  const browser = {
+    ...windowObject,
+    localStorage: {
+      getItem(key) { if (inaccessible) throw new Error("Storage blocked"); return backing.get(key) ?? null; },
+      setItem(key, value) { if (inaccessible) throw new Error("Storage blocked"); backing.set(key, value); },
+    },
+  };
+  const sandbox = vm.createContext({ ...context, window: browser });
+  vm.runInContext(source, sandbox);
+  return { api: browser, state: browser.__ommGetState(), backing };
+}
+{
+  const { api, state } = bootWithStorage(JSON.stringify({
+    difficulty: "constructor", settings: [], bestScores: { "standard:RUN": "not-a-score" }, muted: "false"
+  }));
+  assert.equal(state.difficulty, "standard", "inherited object names are not difficulty profiles");
+  assert.equal(state.best, 0, "corrupt best score must fall back to zero");
+  assert.equal(api.__ommCommand("difficulty", "toString"), false, "invalid difficulty command rejected");
+}
+{
+  const { state } = bootWithStorage(JSON.stringify({
+    difficulty: "hard", settings: {}, bestScores: { "hard:RUN": "42", "hard:NEW": -5 }
+  }));
+  assert.equal(state.difficulty, "hard");
+  assert.equal(state.best, 42, "valid legacy numeric score is preserved");
+}
+for (const raw of ["{invalid", "null", "[]"]) {
+  const { state } = bootWithStorage(raw);
+  assert.equal(state.difficulty, "standard");
+  assert.equal(state.best, 0);
+}
+{
+  const { state } = bootWithStorage(null, true);
+  assert.equal(state.difficulty, "standard", "blocked localStorage must not prevent boot");
+}
+
 console.log("One More Move browser smoke test passed.");
