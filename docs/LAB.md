@@ -83,3 +83,7 @@ The v4 independent experiment passed its six predeclared descriptive criteria. T
 ## Cross-runtime fixture contract
 
 npm run lab:fixtures exports a JSON and Luau golden-decision corpus with provenance, explicit effective configuration/tuning, ordered enemy state, and baseline/v2/v4 expected results. Separate Tactical Parity Fixtures workflow checks the frozen oracle source. It includes all 32 changed states from the existing audit, fixed controls, constructed cases and later-stage component inputs. See TACTICS.md. Export is preparation for parity execution, not proof of Luau equivalence.
+
+## Luau execution gate
+
+npm run lab:luau generates dist/lab/luau/ from the frozen fixture corpus and canonical Roblox grid modules. The standalone Luau Tactical Parity workflow executes TacticalRunner.luau using official Luau 0.730, comparing all 375 fixtures across three policies with exact replay and reporting existing Roblox baseline differences. The generated CLI import adaptation does not change source or playable runtime. See TACTICS.md.

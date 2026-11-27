@@ -1,0 +1,49 @@
+name: Luau Tactical Parity
+
+on:
+  push:
+    branches:
+      - feat/omm-2-web-first
+    paths:
+      - app/**
+      - roblox/src/shared/**
+      - roblox/tests/Tactical.lua
+      - roblox/tests/TacticalRunner.lua
+      - scripts/lab.js
+      - scripts/fixtures-ai.js
+      - scripts/luau-fixtures.js
+      - .github/workflows/tactical.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Confirm frozen JavaScript oracle
+        run: git diff --exit-code d0ee3ffc629d327f5e79a279ac6b92d36ceb03e0 HEAD -- app scripts/lab.js scripts/fixtures-ai.js
+      - name: Generate standalone parity corpus
+        run: npm run lab:luau
+      - name: Build official Luau CLI
+        run: |
+          git clone --depth 1 --branch 0.730 https://github.com/luau-lang/luau.git /tmp/luau
+          cmake -S /tmp/luau -B /tmp/luau/build -DCMAKE_BUILD_TYPE=Release -DLUAU_BUILD_TESTS=OFF
+          cmake --build /tmp/luau/build --target Luau.Repl.CLI --parallel 2
+      - name: Execute exact tactical decision parity
+        run: /tmp/luau/build/luau dist/lab/luau/TacticalRunner.luau
+      - name: Upload parity inputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: one-more-move-luau-parity
+          path: dist/lab/ai-fixtures.json
+          if-no-files-found: error

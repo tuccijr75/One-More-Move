@@ -56,3 +56,7 @@ This foundation implements a complete solo run loop and cross-platform controls.
 ## Experimental tactical parity contract
 
 The JavaScript v2/v4 candidates remain laboratory-only. Generate the frozen oracle from repository root with `npm run lab:fixtures`. CI artifact `one-more-move-ai-fixtures` contains `ai-fixtures.json` and generated `AiFixtures.lua`. Coordinates are zero-based, enemy array order is authoritative, IDs must not be reindexed, nil represents absent intent/portal fields. The test-only consumer must receive the supplied effective config and tuning, and compare the expected enemies, intent tiles and diagnostic ranks without modifying the current `Ai.plan` or server command path. Existing source differences are tracked in docs/TACTICS.md. Fixture generation is not execution of Roblox parity; the candidate port and Studio verification remain pending.
+
+## Standalone tactical conformance
+
+`roblox/tests/Tactical.lua` is an isolated candidate port of the frozen JavaScript baseline/v2/v4 policies. Generate CLI inputs using `npm run lab:luau` from the repository root, then run `luau dist/lab/luau/TacticalRunner.luau` with official Luau 0.730. The generated copies adapt only module import addressing; the source Grid and live Ai modules are unchanged. The runner asserts all 1,125 expected decisions and repeats them, including all 32 actual changed states. The separate workflow executes the CLI tests; it does not run Studio or integrate the candidate into Simulation. The playable server still uses the existing Ai.plan.
