@@ -321,6 +321,39 @@ const OMMAi = (() => {
     return choices;
   }
 
+  const RESPONSE_BEAM = 4;
+
+  // Evaluate a player-max / enemy-min exchange: ordinary cardinal player replies,
+  // followed by the real v2 joint planner. No recursive v4 calls or RNG draws.
+  function replyPressure(gameState, current, choices, cfg, tuning) {
+    const enemies=resolveEnemyDestinations(current,choices);
+    const occupied=new Set(enemies.map(posKey));
+    const replies=getInterceptTargets(gameState).filter(tile=>!occupied.has(posKey(tile)));
+    let worst=[0,0,0],surviving=0,calls=0;
+    for(const player of replies){
+      let value;
+      if(gameState.portal&&samePosition(player,gameState.portal)){
+        // Portal transition precedes enemy response; model as a successful escape.
+        value=[2,0,0];
+      }else{
+        const next={...gameState,player,enemies};
+        const response=planTacticalMovesForState(next,cfg,tuning,"tactical-v2").resolvedMoves;
+        calls++;
+        const intercepted=response.some(enemy=>enemy.stunned===0&&samePosition(enemy,player));
+        if(intercepted)value=[0,0,0];
+        else{
+          const keys=new Set(response.map(posKey));
+          const exits=countEscapeOptionsAt(next,player,keys,false);
+          const clearance=response.length?Math.min(...response.map(enemy=>manhattan(enemy,player))):20;
+          value=[1,exits,clearance];
+        }
+      }
+      if(value[0]>0)surviving++;
+      if(compareRank(value,worst)>0)worst=value;
+    }
+    return {rank:[...worst,surviving],calls};
+  }
+
   function planTacticalMovesForState(gameState,cfg,tuning,policy="tactical-v2") {
     const horizon=TACTICAL_HORIZONS[gameState.difficulty];
     if (!horizon) throw new Error("Unknown tactical difficulty");
@@ -332,11 +365,13 @@ const OMMAi = (() => {
     const assignments=assignInterceptTargets(gameState,current);
     const {exits,projected}=projectionTiles(gameState,horizon);
     const containment=policy==="tactical-v3"&&gameState.difficulty==="hardcore"?containmentModel(gameState,exits):null;
+    const adversarial=policy==="tactical-v4"&&gameState.difficulty==="hardcore"&&current.some(e=>e.stunned===0&&manhattan(e,gameState.player)<=4);
     const candidates=current.map((_,index)=>teamOptions(gameState,current,index,cfg,tuning,assignments,exits,projected,containment));
     const reserved=new Set(),selected=[];
     let best=null,bestRank=null,bestContainment=null,combinations=0;
     // Store bounded leaf summaries only for v3. At most 5^6 assignments.
     const alternatives=[];
+    const beam=[];
     function search(index,kills,closing,moved,occupied,threat,projection,coordination,deviations,continuation,continuationOccupied) {
       if (index===candidates.length) {
         combinations++;
@@ -350,6 +385,14 @@ const OMMAi = (() => {
           bestRank=rank;best=selected.slice();bestContainment=pressure;
         }
         if(containment)alternatives.push({choices:selected.slice(),rank,pressure,deviations,kills,closing,moved});
+        if(adversarial){
+          // Stable rank order, with the strict best always in the shortlist.
+          // Keep only the four strongest heuristic leaves, never expand the tree recursively.
+          const index=beam.findIndex(entry=>compareRank(rank,entry.rank)<0);
+          if(index>=0)beam.splice(index,0,{choices:selected.slice(),rank});
+          else if(beam.length<RESPONSE_BEAM)beam.push({choices:selected.slice(),rank});
+          if(beam.length>RESPONSE_BEAM)beam.pop();
+        }
         return;
       }
       for (const candidate of candidates[index]) {
@@ -388,9 +431,24 @@ const OMMAi = (() => {
         bestContainment=selectedAlternative.pressure;chosenDeviation=selectedAlternative.deviations;
       }
     }
+    let forecast=null,strictForecast=null,responseCalls=0,examined=0;
+    if(adversarial&&strictRank[0]===0){
+      const eligible=beam.filter(entry=>entry.rank.slice(0,3).every((v,i)=>v===strictRank[i]));
+      if(eligible.length>1){
+        const initial=replyPressure(gameState,current,best,cfg,tuning);
+        forecast=strictForecast=initial.rank;responseCalls+=initial.calls;examined=1;
+        for(const entry of eligible.slice(1)){
+          const evaluation=replyPressure(gameState,current,entry.choices,cfg,tuning);
+          responseCalls+=evaluation.calls;examined++;
+          if(compareRank(evaluation.rank,forecast)<0){
+            best=entry.choices;bestRank=entry.rank;forecast=evaluation.rank;
+          }
+        }
+      }
+    }
     const resolvedMoves=resolveEnemyDestinations(current,best);
     const intentTiles=new Set(resolvedMoves.filter((enemy,index)=>!samePosition(enemy,current[index])).map(posKey));
-    return {resolvedMoves,intentTiles,diagnostics:{horizon,mode:"joint",combinations,rank:bestRank,...(containment?{strictRank,strictContainment,containment:bestContainment,deviations:chosenDeviation}: {})}};
+    return {resolvedMoves,intentTiles,diagnostics:{horizon,mode:"joint",combinations,rank:bestRank,...(containment?{strictRank,strictContainment,containment:bestContainment,deviations:chosenDeviation}: {}),...(policy==="tactical-v4"&&gameState.difficulty==="hardcore"?{strictRank,forecast,strictForecast,responseCalls,examined}: {})}};
   }
 
   return Object.freeze({ planEnemyMovesForState, planTacticalMovesForState, resolveEnemyDestinations, TACTICAL_HORIZONS });

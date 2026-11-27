@@ -20,7 +20,8 @@
     "lab:tactical": "node scripts/run-tactical.js",
     "lab:heldout": "node scripts/run-tactical.js --held-out",
     "lab:containment": "node scripts/run-tactical.js --containment",
-    "lab:profile": "node scripts/profile-ai.js"
+    "lab:profile": "node scripts/profile-ai.js",
+    "lab:adversarial": "node scripts/run-tactical.js --adversarial"
   },
   "build": {
     "appId": "com.tucci.onemoremove",

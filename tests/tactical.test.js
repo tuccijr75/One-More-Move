@@ -26,6 +26,16 @@ const plan=(s,policy="tactical-v2")=>ai.planTacticalMovesForState(s,core.getEffe
       const before=JSON.stringify(v);
       const result=plan(fixture);
       const refined=plan(fixture,"tactical-v3");
+      const adversarial=plan(fixture,"tactical-v4");
+      assert.deepEqual(adversarial,plan(fixture,"tactical-v4"),"v4 deterministic");
+      if(difficulty!=="hardcore")assert.deepEqual(adversarial,result,"v4 preserves Standard and Hard");
+      else{
+        const d=adversarial.diagnostics;
+        assert.deepEqual(d.rank.slice(0,3),result.diagnostics.rank.slice(0,3),"v4 preserves kill/closing/movement priority");
+        assert.ok(d.responseCalls<=16&&d.examined<=4,"bounded reply search");
+        assert.equal(new Set(adversarial.resolvedMoves.map(grid.posKey)).size,fixture.enemies.length);
+        adversarial.resolvedMoves.forEach((e,i)=>assert.ok(grid.inBounds(e.x,e.y)&&!fixture.walls.has(grid.posKey(e))&&grid.manhattan(e,fixture.enemies[i])<=1));
+      }
       assert.deepEqual(refined,plan(fixture,"tactical-v3"),"v3 deterministic");
       if(difficulty!=="hardcore")assert.deepEqual(refined,result,"v3 must preserve Standard and Hard exactly");
       else {
@@ -62,10 +72,31 @@ const plan=(s,policy="tactical-v2")=>ai.planTacticalMovesForState(s,core.getEffe
     const six=state(difficulty,{enemies:[enemy(0,1,1),enemy(1,2,2),enemy(2,3,3),enemy(3,7,7),enemy(4,8,8),enemy(5,9,9)]});
     assert.ok(plan(six).diagnostics.combinations<=15625,"six-enemy search cap");
   }
+  // Contested fixtures exercise actual reply enumeration rather than edge spawns.
+  let evaluated=0;
+  for(const [x,y] of [[2,4],[3,3],[4,2],[6,2],[7,3],[8,4]]){
+    const s=state("hardcore",{enemies:[enemy(0,x,y),enemy(1,3,6)],portal:{x:6,y:5}});
+    const reference=plan(s),candidate=plan(s,"tactical-v4"),d=candidate.diagnostics;
+    assert.deepEqual(candidate,plan(s,"tactical-v4"));
+    assert.deepEqual(d.rank.slice(0,3),reference.diagnostics.rank.slice(0,3));
+    assert.ok(d.responseCalls<=16&&d.examined<=4);
+    if(d.examined){
+      evaluated++;
+      assert.ok(d.strictForecast&&d.forecast);
+      const first=d.forecast.findIndex((v,i)=>v!==d.strictForecast[i]);
+      assert.ok(first<0||d.forecast[first]<d.strictForecast[first],"never worsen modeled reply pressure");
+    }
+  }
+  assert.ok(evaluated>0,"contested test must execute reply search");
+  const kill=state("hardcore",{enemies:[enemy(0,5,4),enemy(1,4,5)]});
+  assert.ok(plan(kill,"tactical-v4").resolvedMoves.some(e=>grid.samePosition(e,kill.player)));
+  assert.equal(plan(kill,"tactical-v4").diagnostics.responseCalls,0,"immediate kill bypasses forecast");
   const options={seed:777,difficulty:"hard",strategy:"tactical",maxActions:30,enemyPolicy:"tactical-v2",diagnostics:true};
   assert.deepEqual(await simulate(options),await simulate(options),"candidate seeded trace deterministic");
   const refinedOptions={...options,difficulty:"hardcore",enemyPolicy:"tactical-v3"};
   assert.deepEqual(await simulate(refinedOptions),await simulate(refinedOptions),"v3 seeded trace deterministic");
+  const v4Options={...refinedOptions,enemyPolicy:"tactical-v4"};
+  assert.deepEqual(await simulate(v4Options),await simulate(v4Options),"v4 seeded trace deterministic");
   assert.throws(()=>core.createHeadlessRun({seed:1,enemyPolicy:"unknown"}),/Invalid enemy policy/);
   console.log("Tactical candidate invariant tests passed.");
 })().catch(error=>{console.error(error);process.exitCode=1});

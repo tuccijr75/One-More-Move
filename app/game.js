@@ -59,7 +59,7 @@ const OMMCore = (() => {
 
   function planEnemyMovesForState(gameState, cfg = getEffectiveConfig(gameState.difficulty, gameState.stage, gameState.tuning || DEFAULT_TUNING)) {
     // Experimental selection is Node-only and explicit. Browser gameplay remains the locked baseline.
-    if (["tactical-v2","tactical-v3"].includes(headlessRuntime?.enemyPolicy)) {
+    if (["tactical-v2","tactical-v3","tactical-v4"].includes(headlessRuntime?.enemyPolicy)) {
       return ai.planTacticalMovesForState(gameState, cfg, tuning, headlessRuntime.enemyPolicy);
     }
     return ai.planEnemyMovesForState(gameState, cfg, tuning);
@@ -279,7 +279,7 @@ const OMMCore = (() => {
       throw new Error("Invalid seed or difficulty");
     }
     if (!Number.isInteger(inputMs) || inputMs < 0 || inputMs > 60000) throw new Error("Invalid input pace");
-    if (!["baseline", "tactical-v2", "tactical-v3"].includes(enemyPolicy)) throw new Error("Invalid enemy policy");
+    if (!["baseline", "tactical-v2", "tactical-v3", "tactical-v4"].includes(enemyPolicy)) throw new Error("Invalid enemy policy");
     difficulty = selectedDifficulty;
     tuning = sanitizeTuning({ ...DEFAULT_TUNING, ...settings });
     const runtime = { now: 0, pending: null, busy: false, enemyPolicy };

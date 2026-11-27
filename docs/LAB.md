@@ -63,3 +63,7 @@ The held-out v2 receipt confirms meaningful Hard differentiation but weak Hardco
 ## Planner profiling
 
 npm run lab:profile writes dist/lab/profile.json. Separate CI workflow AI Planner Profile isolates computational and mechanism evidence from the survival experiment. The 120 synthetic fixtures and 720 timed planner invocations compare v2 and v3 under identical input, including the six-enemy upper bound. See TACTICS.md for limitations and interpretation.
+
+## Adversarial screen
+
+V3 did not pass the difficulty-gradient criterion. npm run lab:adversarial compares v2 with v4 on 40001–40030 and writes dist/lab/adversarial.json. The expanded profile includes contested layouts and all three candidate versions, reports bounded response search cost, and retains earlier experiments in Git history and CI artifacts. Legacy gameplay and baseline equivalence remain unchanged.

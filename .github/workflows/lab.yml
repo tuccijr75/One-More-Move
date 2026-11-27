@@ -74,3 +74,12 @@ jobs:
           name: one-more-move-containment
           path: dist/lab/containment.json
           if-no-files-found: error
+
+      - name: Screen adversarial replies against frozen v2
+        run: npm run lab:adversarial
+      - name: Upload adversarial evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: one-more-move-adversarial
+          path: dist/lab/adversarial.json
+          if-no-files-found: error
