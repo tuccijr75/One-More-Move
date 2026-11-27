@@ -225,7 +225,33 @@ local function testTimeFreezeCompletion()
 	expect(state.timeFreezeMovesRemaining == 0 and state.turns == 1, "two-step freeze failed")
 end
 
+local function testAbilityEscape()
+	local state = Simulation.newRun(19, "standard", "TEST", 1)
+	state.player = { x = 5, y = 5 }
+	state.walls = { ["5,5"] = true, ["7,5"] = true, ["6,4"] = true, ["6,6"] = true }
+	state.enemies = {}
+	state.phaseUsed = true
+	state.tokens.wall = 1
+	expect(Simulation.applyCommand(state, { type = "move", dx = 1, dy = 0 }, 1), "escape fixture move rejected")
+	expect(not state.gameOver and state.turns == 1, "stored Wall Ignore did not prevent false no-escape death")
+	expect(Simulation.applyCommand(state, { type = "ability", ability = "wall" }, 2), "Wall Ignore rejected")
+	expect(Simulation.applyCommand(state, { type = "move", dx = 1, dy = 0 }, 3), "wall escape rejected")
+	expect(not state.wallIgnoreArmed, "wall escape did not consume armed reward")
+end
+
+local function testPhaseArmingSafety()
+	local state = Simulation.newRun(20, "standard", "TEST", 1)
+	state.player = { x = 0, y = 0 }
+	state.walls = { ["2,0"] = true, ["0,2"] = true }
+	state.enemies = {}
+	local accepted = Simulation.applyCommand(state, { type = "ability", ability = "phase" }, 1)
+	expect(not accepted and not state.phaseArmed and state.cooldownUntil == 0, "unusable Phase Step was armed")
+	expect(Simulation.applyCommand(state, { type = "move", dx = 1, dy = 0 }, 2), "ordinary move blocked after rejected arming")
+end
+
 local tests = {
+	AbilityEscape = testAbilityEscape,
+	PhaseArmingSafety = testPhaseArmingSafety,
 	RejectedPhaseAtomic = testRejectedPhaseIsAtomic,
 	TimeFreezeCompletion = testTimeFreezeCompletion,
 	StunExpiry = testStunExpiry,

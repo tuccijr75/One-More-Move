@@ -89,4 +89,29 @@ function baseState(overrides = {}) {
   assert.equal(next.y, 5, "enemy must resume kill-first pursuit on the following turn");
 }
 
+{
+  const state = baseState({
+    player: { x: 5, y: 5 }, phaseUsed: true,
+    walls: new Set(["4,5", "6,5", "5,4", "5,6"]),
+  });
+  assert.equal(core.hasPlayerEscape(state), false, "no route and no reward means trapped");
+  state.tokens.wall = 1;
+  assert.equal(core.hasPlayerEscape(state), true, "stored Wall Ignore must prevent false no-escape death");
+  state.tokens.wall = 0;
+  state.wallIgnoreArmed = true;
+  assert.equal(core.hasPlayerEscape(state), true, "armed Wall Ignore is a route");
+  state.wallIgnoreArmed = false;
+  state.phaseUsed = false;
+  assert.equal(core.hasPlayerEscape(state), false, "Phase Step cannot pass walls");
+  state.walls.delete("6,5");
+  state.enemies = [{ x: 6, y: 5 }];
+  assert.equal(core.hasPlayerEscape(state), true, "Phase Step may cross an enemy into an empty tile");
+  state.enemies.push({ x: 7, y: 5 });
+  assert.equal(core.hasPlayerEscape(state), false, "Phase Step cannot land on an enemy");
+  state.enemies = [];
+  state.walls.add("7,5");
+  state.phaseArmed = true;
+  assert.equal(core.hasPlayerEscape(state), false, "armed Phase Step must use a valid two-cell route");
+}
+
 console.log("One More Move core tests passed.");

@@ -323,6 +323,44 @@ const OMMCore = (() => {
     return count;
   }
 
+  // Escape adjudication includes held movement rewards; AI/spawn/revival geometry remains unchanged.
+  function phaseDestination(gameState, dx, dy, enemyKeys) {
+    if (Math.abs(dx) + Math.abs(dy) !== 1) return null;
+    const first = { x: gameState.player.x + dx, y: gameState.player.y + dy };
+    const second = { x: first.x + dx, y: first.y + dy };
+    if (!inBounds(first.x, first.y) || !inBounds(second.x, second.y)) return null;
+    if (gameState.walls.has(posKey(first)) || gameState.walls.has(posKey(second))) return null;
+    return enemyKeys.has(posKey(second)) ? null : { first, second };
+  }
+
+  function hasPhaseDestination(gameState, enemyKeys) {
+    return getNeighbors(gameState.player).some(next =>
+      phaseDestination(gameState, next.x - gameState.player.x, next.y - gameState.player.y, enemyKeys));
+  }
+
+  function hasPlayerEscape(gameState, enemyKeys = new Set(gameState.enemies.map(posKey))) {
+    // An armed Phase Step requires a two-cell cardinal move.
+    if (gameState.phaseArmed) return hasPhaseDestination(gameState, enemyKeys);
+    if (countEscapeOptionsAt(gameState, gameState.player, enemyKeys, true) > 0) return true;
+    // Cooldown is wall-clock time: a held reward may become usable without an enemy turn.
+    if (gameState.wallIgnoreArmed || gameState.tokens.wall > 0) {
+      if (getNeighbors(gameState.player).some(next =>
+        inBounds(next.x, next.y) && !enemyKeys.has(posKey(next)) && gameState.walls.has(posKey(next)))) return true;
+    }
+    if (gameState.wallIgnoreArmed && gameState.tokens.diag > 0) {
+      const { x, y } = gameState.player;
+      for (const dx of [-1, 1]) {
+        for (const dy of [-1, 1]) {
+          const destination = { x: x + dx, y: y + dy };
+          if (inBounds(destination.x, destination.y) && !enemyKeys.has(posKey(destination)) &&
+              !gameState.walls.has(posKey({ x: x + dx, y })) &&
+              !gameState.walls.has(posKey({ x, y: y + dy }))) return true;
+        }
+      }
+    }
+    return !gameState.phaseUsed && hasPhaseDestination(gameState, enemyKeys);
+  }
+
   function buildWalls(gameState, count) {
     const avoid = new Set([posKey(gameState.player)]);
     if (gameState.portal) avoid.add(posKey(gameState.portal));
@@ -854,7 +892,7 @@ const OMMCore = (() => {
       }
 
       const enemyKeys = new Set(gameState.enemies.map(posKey));
-      if (countEscapeOptionsAt(gameState, gameState.player, enemyKeys, true) === 0) {
+      if (!hasPlayerEscape(gameState, enemyKeys)) {
         const result = handleDeath(gameState, "No escape.", null);
         if (result === "DEAD") return false;
       }
@@ -883,12 +921,9 @@ const OMMCore = (() => {
     if (!Number.isInteger(dx) || !Number.isInteger(dy) || Math.abs(dx) > 1 || Math.abs(dy) > 1 || (dx === 0 && dy === 0)) return false;
 
     if (gameState.phaseArmed) {
-      if (dx !== 0 && dy !== 0) return false;
-      const first = { x: gameState.player.x + dx, y: gameState.player.y + dy };
-      const second = { x: first.x + dx, y: first.y + dy };
-      if (!inBounds(first.x, first.y) || !inBounds(second.x, second.y)) return false;
-      if (gameState.walls.has(posKey(first)) || gameState.walls.has(posKey(second))) return false;
-      if (gameState.enemies.some((enemy) => samePosition(enemy, second))) return false;
+      const destination = phaseDestination(gameState, dx, dy, new Set(gameState.enemies.map(posKey)));
+      if (!destination) return false;
+      const { first, second } = destination;
 
       const phasedEnemy = gameState.enemies.find((enemy) => samePosition(enemy, first));
       if (phasedEnemy) phasedEnemy.stunned = Math.max(phasedEnemy.stunned, 1);
@@ -986,6 +1021,10 @@ const OMMCore = (() => {
     const gameState = state;
     if (!gameState || gameState.gameOver || gameState.inputLocked || gameState.phaseUsed || gameState.phaseArmed) return false;
     if (!abilityReady(gameState)) return false;
+    if (!hasPhaseDestination(gameState, new Set(gameState.enemies.map(posKey)))) {
+      setStatus(gameState, "NO PHASE ROUTE", 900);
+      return false;
+    }
     gameState.phaseArmed = true;
     startGlobalCooldown(gameState);
     updateHud();
@@ -1420,6 +1459,7 @@ const OMMCore = (() => {
     shortestPathDist,
     shortestPathDistToAny,
     countEscapeOptionsAt,
+    hasPlayerEscape,
     buildWalls,
     getEffectiveConfig,
     planEnemyMovesForState,

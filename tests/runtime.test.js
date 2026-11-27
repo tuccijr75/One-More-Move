@@ -216,6 +216,37 @@ function wait(ms) {
     assert.equal(state.inputLocked, false);
   }
 
+  {
+    api.__ommCommand("new");
+    const state = api.__ommGetState();
+    state.player = { x: 5, y: 5 };
+    state.walls = new Set(["5,5", "7,5", "6,4", "6,6"]);
+    state.enemies = [];
+    state.phaseUsed = true;
+    state.tokens.wall = 1;
+    assert.equal(api.__ommMove(1, 0), true);
+    await wait(320);
+    assert.equal(state.gameOver, false, "Wall Ignore can rescue an otherwise enclosed player");
+    assert.equal(state.turns, 1);
+    assert.equal(api.__ommCommand("wall"), true);
+    assert.equal(api.__ommMove(1, 0), true);
+    await wait(320);
+    assert.equal(state.wallIgnoreArmed, false);
+  }
+
+  {
+    api.__ommCommand("new");
+    const state = api.__ommGetState();
+    state.player = { x: 0, y: 0 };
+    state.walls = new Set(["2,0", "0,2"]);
+    state.enemies = [];
+    assert.equal(api.__ommCommand("phase"), false, "must not arm Phase Step with no legal destination");
+    assert.equal(state.phaseArmed, false);
+    assert.equal(state.rewardCooldownUntil, 0, "rejected arming must not consume cooldown");
+    assert.equal(api.__ommMove(1, 0), true, "ordinary movement remains possible");
+    await wait(320);
+  }
+
   console.log("One More Move asynchronous runtime tests passed.");
 })().catch((error) => {
   console.error(error);

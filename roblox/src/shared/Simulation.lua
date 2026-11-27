@@ -249,6 +249,60 @@ local function finalizeTurn(state: State)
 	end
 end
 
+-- Terminal escape detection is distinct from AI/spawn/revival geometry.
+local function phaseDestination(state: State, dx: number, dy: number, enemies: PositionSet): (Position?, Position?)
+	if math.abs(dx) + math.abs(dy) ~= 1 then
+		return nil, nil
+	end
+	local first = { x = state.player.x + dx, y = state.player.y + dy }
+	local second = { x = first.x + dx, y = first.y + dy }
+	if not Grid.inBounds(first) or not Grid.inBounds(second) or state.walls[Grid.key(first)] or state.walls[Grid.key(second)] or enemies[Grid.key(second)] then
+		return nil, nil
+	end
+	return first, second
+end
+
+local function hasPhaseDestination(state: State, enemies: PositionSet): boolean
+	for _, next in Grid.neighbors(state.player) do
+		local _, second = phaseDestination(state, next.x - state.player.x, next.y - state.player.y, enemies)
+		if second then
+			return true
+		end
+	end
+	return false
+end
+
+local function hasPlayerEscape(state: State, enemies: PositionSet): boolean
+	if state.phaseArmed then
+		return hasPhaseDestination(state, enemies)
+	end
+	if Grid.countEscapes(state.player, state.walls, enemies, state.tokens.diag > 0) > 0 then
+		return true
+	end
+	if state.wallIgnoreArmed or state.tokens.wall > 0 then
+		for _, next in Grid.neighbors(state.player) do
+			local key = Grid.key(next)
+			if Grid.inBounds(next) and not enemies[key] and state.walls[key] then
+				return true
+			end
+		end
+	end
+	if state.wallIgnoreArmed and state.tokens.diag > 0 then
+		local x, y = state.player.x, state.player.y
+		for _, dx in {-1, 1} do
+			for _, dy in {-1, 1} do
+				local destination = { x = x + dx, y = y + dy }
+				if Grid.inBounds(destination) and not enemies[Grid.key(destination)]
+					and not state.walls[Grid.key({ x = x + dx, y = y })]
+					and not state.walls[Grid.key({ x = x, y = y + dy })] then
+					return true
+				end
+			end
+		end
+	end
+	return not state.phaseUsed and hasPhaseDestination(state, enemies)
+end
+
 local function resolveEnemyTurn(state: State)
 	if state.freezeNext then
 		state.freezeNext = false
@@ -272,7 +326,7 @@ local function resolveEnemyTurn(state: State)
 		end
 	end
 	local enemies = Grid.enemySet(state.enemies)
-	if Grid.countEscapes(state.player, state.walls, enemies, state.tokens.diag > 0) == 0 then
+	if not hasPlayerEscape(state, enemies) then
 		if handleDeath(state, "No escape.") then
 			return
 		end
@@ -327,21 +381,9 @@ local function move(state: State, dx: number, dy: number, now: number): (boolean
 	end
 
 	if state.phaseArmed then
-		if dx ~= 0 and dy ~= 0 then
-			return false, "phase requires cardinal movement"
-		end
-		local first = { x = state.player.x + dx, y = state.player.y + dy }
-		local second = { x = first.x + dx, y = first.y + dy }
-		if not Grid.inBounds(first) or not Grid.inBounds(second) then
-			return false, "phase out of bounds"
-		end
-		if state.walls[Grid.key(first)] or state.walls[Grid.key(second)] then
+		local first, second = phaseDestination(state, dx, dy, Grid.enemySet(state.enemies))
+		if not first or not second then
 			return false, "phase blocked"
-		end
-		for _, enemy in state.enemies do
-			if Grid.same(enemy, second) then
-				return false, "phase destination occupied"
-			end
 		end
 		for _, enemy in state.enemies do
 			if Grid.same(enemy, first) then
@@ -410,6 +452,9 @@ local function activate(state: State, ability: string, now: number): (boolean, s
 		state.tokens.freeze = 0
 		state.freezeNext = true
 	elseif ability == "phase" and not state.phaseUsed and not state.phaseArmed then
+		if not hasPhaseDestination(state, Grid.enemySet(state.enemies)) then
+			return false, "no phase route"
+		end
 		state.phaseArmed = true
 	elseif ability == "time" and state.tokens.timeFreeze > 0 and state.timeFreezeMovesRemaining == 0 then
 		state.tokens.timeFreeze = 0
