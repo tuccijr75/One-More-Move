@@ -43,3 +43,7 @@ Configuration and generation extraction at 94a7b7c4ffa8eaedec493fb83daa8bedc0d15
 ## State, storage and presentation extraction
 
 Movement and progression extraction at 48fba7e92bc1d252481b86587282b270e557a8e6 passed Core Validation 46004331554 (including locked baseline equivalence) and benchmark 46004331307. Initial run state construction moves to state.js, persistent preferences and scores to storage.js, and browser keyboard input, settings, canvas/HUD and audio to presentation.js. Runtime retains active-run ownership, command dispatch, asynchronous turn scheduling, lifecycle and virtual-clock integration. Storage keys, data format, input bindings and renderer effects remain unchanged. The presentation factory uses explicit runtime accessors, with no direct mutable runtime state ownership. All module hashes enter benchmark provenance. Locked equivalence and browser tests remain mandatory before acceptance; no gameplay rule change in this slice.
+
+## Phase 5 controlled experiments
+
+Modularization at ba77563e5cbbb0e81d568de4f9403d4c6bcdbd2d passed the locked equivalence gate and 1,500-run benchmark. See TACTICS.md for the Node-only tactical-v1 candidate and paired screening contract. Default baseline rows remain unchanged; the legacy equivalence gate continues to protect shipping behavior. No tactical parameters are promoted merely by a passing experiment.

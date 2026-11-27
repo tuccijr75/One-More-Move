@@ -17,6 +17,7 @@ on:
       - app/presentation.js
       - scripts/lab.js
       - scripts/run-lab.js
+      - scripts/run-tactical.js
       - .github/workflows/lab.yml
   workflow_dispatch:
 
@@ -43,4 +44,13 @@ jobs:
         with:
           name: one-more-move-benchmark
           path: dist/lab/results.json
+          if-no-files-found: error
+
+      - name: Evaluate experimental tactical AI against baseline
+        run: npm run lab:tactical
+      - name: Upload tactical comparison evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: one-more-move-tactical
+          path: dist/lab/tactical.json
           if-no-files-found: error

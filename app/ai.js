@@ -189,7 +189,94 @@ const OMMAi = (() => {
     return { resolvedMoves, intentTiles };
   }
 
-  return Object.freeze({ planEnemyMovesForState, resolveEnemyDestinations });
+  // Experimental policy. The shipping browser continues to use the legacy planner.
+  const TACTICAL_HORIZONS = Object.freeze({ standard: 1, hard: 2, hardcore: 3 });
+
+  function tacticalAssignments(gameState, current, horizon) {
+    const player = gameState.player;
+    const prior = gameState.playerTrail?.[1]?.split(",").map(Number);
+    const heading = prior && prior.length === 2 && prior.every(Number.isFinite)
+      ? { x: Math.sign(player.x - prior[0]), y: Math.sign(player.y - prior[1]) }
+      : { x: 0, y: 0 };
+    const corridors = getInterceptTargets(gameState).map(exit => {
+      const dx = exit.x - player.x, dy = exit.y - player.y;
+      let target = exit;
+      // A bounded straight-corridor projection, not a claim of predicting future moves.
+      for (let step = 1; step < horizon; step++) {
+        const next = { x: target.x + dx, y: target.y + dy };
+        if (!inBounds(next.x, next.y) || gameState.walls.has(posKey(next))) break;
+        target = next;
+      }
+      return { exit, target, forward: dx * heading.x + dy * heading.y };
+    }).sort((a,b) => b.forward - a.forward || a.exit.y - b.exit.y || a.exit.x - b.exit.x);
+
+    const mobile = current.map((enemy,index) => {
+      const blocked = buildBlockedSet(gameState,{excludeEnemyIdx:index});
+      blocked.delete(posKey(player));
+      return {enemy,index,blocked,distance:shortestPathDist(enemy,player,blocked)};
+    }).filter(item => item.enemy.stunned <= 0)
+      .sort((a,b) => a.distance - b.distance || a.index - b.index);
+    const assignments = new Map();
+    if (!mobile.length) return assignments;
+    const pursuer = mobile.shift();
+    assignments.set(pursuer.index,{role:"pursuer",target:player});
+    const remaining = [...corridors];
+    while (mobile.length && remaining.length) {
+      // Allocate distinct corridors, prioritizing the projected direction of travel.
+      const corridor = remaining.shift();
+      const ranked = mobile.map(item=>({item,distance:shortestPathDist(item.enemy,corridor.target,item.blocked)}))
+        .sort((a,b)=>a.distance-b.distance||a.item.index-b.item.index);
+      if (!Number.isFinite(ranked[0].distance)) continue;
+      const item = ranked[0].item;
+      mobile.splice(mobile.indexOf(item),1);
+      const role = corridor.forward > 0 ? "interceptor" : corridor.forward === 0 ? "flanker" : "containment";
+      assignments.set(item.index,{role,target:corridor.target});
+    }
+    for (const item of mobile) assignments.set(item.index,{role:"containment",target:player});
+    return assignments;
+  }
+
+  function planTacticalMovesForState(gameState, cfg, tuning) {
+    const horizon = TACTICAL_HORIZONS[gameState.difficulty];
+    if (!horizon) throw new Error("Unknown tactical difficulty");
+    const current = gameState.enemies.map(enemy=>({...enemy}));
+    const assignments = tacticalAssignments(gameState,current,horizon);
+    const fallback = assignInterceptTargets(gameState,current);
+    const proposals = Array(current.length);
+    const reserved = new Set();
+    // The closest pursuer chooses first; other enemies avoid redundant destinations
+    // only among moves with equal immediate chase tier and path distance.
+    const order = current.map((_,index)=>index).sort((a,b)=>
+      Number(assignments.get(b)?.role==="pursuer")-Number(assignments.get(a)?.role==="pursuer") || a-b);
+    for (const index of order) {
+      const enemy = current[index];
+      const legal = getNeighbors(enemy).filter(tile=>inBounds(tile.x,tile.y)&&!gameState.walls.has(posKey(tile)));
+      if (enemy.stunned>0 || !legal.length || legal.some(tile=>samePosition(tile,gameState.player))) {
+        proposals[index]=selectEnemyProposal(gameState,current,index,cfg,fallback,tuning);
+      } else {
+        const role = assignments.get(index) || {role:"containment",target:gameState.player};
+        const ranked = legal.map(tile=>{
+          const evaluated = evaluateEnemyCandidate(gameState,current,index,enemy,tile,cfg,role.target,tuning);
+          const blocked = buildBlockedSet(gameState,{excludeEnemyIdx:index,hypotheticalTile:tile});
+          blocked.delete(posKey(role.target));
+          const roleDistance=shortestPathDist(tile,role.target,blocked);
+          // Strict kill/chase priorities remain above the tactical role score.
+          const rank=[evaluated.rank[0],evaluated.rank[1],Number(reserved.has(posKey(tile))),
+            roleDistance,...evaluated.rank.slice(2)];
+          return {...evaluated,rank};
+        }).sort((a,b)=>compareRank(a.rank,b.rank));
+        const selected=ranked[0];
+        proposals[index]={target:selected.target,rank:[...selected.rank,index],
+          nextEnemy:{...enemy,x:selected.target.x,y:selected.target.y,intent:selected.direction,intentLock:cfg.commitLockTurns}};
+      }
+      reserved.add(posKey(proposals[index].target));
+    }
+    const resolvedMoves=resolveEnemyDestinations(current,proposals);
+    const intentTiles=new Set(resolvedMoves.filter((enemy,index)=>!samePosition(enemy,current[index])).map(posKey));
+    return {resolvedMoves,intentTiles,diagnostics:{horizon,roles:[...assignments].map(([index,role])=>({id:current[index].id,...role}))}};
+  }
+
+  return Object.freeze({ planEnemyMovesForState, planTacticalMovesForState, resolveEnemyDestinations, TACTICAL_HORIZONS });
 })();
 
 if (typeof module !== "undefined" && module.exports) module.exports = OMMAi;

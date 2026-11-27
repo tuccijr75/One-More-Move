@@ -86,18 +86,20 @@ function choose(s, strategy, rng) {
   return {candidate:evaluated[0],proxy:tactical||defensive?evaluated.every(c=>c.immediateRisk===1):null};
 }
 
-async function simulate({seed,difficulty,strategy,maxActions=160,inputMs=1000}) {
-  const run=core.createHeadlessRun({seed,difficulty,inputMs});
+async function simulate({seed,difficulty,strategy,maxActions=160,inputMs=1000,enemyPolicy="baseline",diagnostics=false}) {
+  const run=core.createHeadlessRun({seed,difficulty,inputMs,enemyPolicy});
   const policyRng=core.createRng((seed^0x85ebca6b)>>>0);
   const rewardUses={wall:0,phase:0,diag:0,freeze:0,timeFreeze:0};
   let actions=0,waits=0,portalSpawns=0,unreachablePortals=0,portalEntries=0;
   let riskSamples=0,allImmediateRisk=0,adjacentPressureSum=0,pressureSamples=0;
   let reason="action-cap",s=run.snapshot();
   const trajectory=createHash("sha256");
+  const geometry=diagnostics?createHash("sha256"):null;
   function record(snapshot){
     // Ignore wall-clock and visual intent timing, but retain gameplay state and decisions.
     const { player,walls,enemies,turns,stage,portal,tokens,phaseUsed,phaseArmed,wallIgnoreArmed,freezeNext,holdSpace,holdMovesLeft,hasExtraLife,gameOver,deathCause }=snapshot;
     trajectory.update(JSON.stringify({player,walls,enemies:enemies.map(({id,x,y,stunned,intent,intentLock})=>({id,x,y,stunned,intent,intentLock})),turns,stage,portal,tokens,phaseUsed,phaseArmed,wallIgnoreArmed,freezeNext,holdSpace,holdMovesLeft,hasExtraLife,gameOver,deathCause})+"\n");
+    if(geometry)geometry.update(JSON.stringify({player,walls,enemies:enemies.map(({id,x,y,stunned})=>({id,x,y,stunned})),turns,stage,portal,gameOver})+"\n");
   }
   record(s);
   async function send(action){
@@ -140,7 +142,7 @@ async function simulate({seed,difficulty,strategy,maxActions=160,inputMs=1000}) 
   if(s.gameOver)reason=s.deathCause||"game-over";
   return {seed,difficulty,strategy,turns:s.turns,stage:s.stage,actions,clockMs:s.clockMs,
     outcome:reason,dead:s.gameOver,censored:!s.gameOver,waits,portalSpawns,portalEntries,unreachablePortals,rewardUses,
-    riskSamples,allImmediateRisk,adjacentPressureSum,pressureSamples,trajectorySha256:trajectory.digest("hex")};
+    riskSamples,allImmediateRisk,adjacentPressureSum,pressureSamples,trajectorySha256:trajectory.digest("hex"),...(geometry?{geometrySha256:geometry.digest("hex")}: {})};
 }
 function quantile(values,p) {
   const sorted=[...values].sort((a,b)=>a-b);
@@ -175,21 +177,22 @@ function compareDifficulties(rows) {
       stageChanged:pairs.filter(([x,y])=>x.stage!==y.stage).length,
       outcomeChanged:pairs.filter(([x,y])=>x.outcome!==y.outcome).length,
       trajectoryChanged:pairs.filter(([x,y])=>x.trajectorySha256!==y.trajectorySha256).length,
-      bothDead:pairs.filter(([x,y])=>x.dead&&y.dead).length});
+      bothDead:pairs.filter(([x,y])=>x.dead&&y.dead).length,
+      ...(pairs[0]?.[0].geometrySha256?{geometryChanged:pairs.filter(([x,y])=>x.geometrySha256!==y.geometrySha256).length}: {})});
   }
   return results;
 }
-async function runMatrix({runs=3,startSeed=777,maxActions=100,inputMs=1000,revision="working-tree"}={}) {
+async function runMatrix({runs=3,startSeed=777,maxActions=100,inputMs=1000,revision="working-tree",enemyPolicy="baseline",diagnostics=false}={}) {
   if(!Number.isInteger(runs)||runs<1||runs>10000||!Number.isInteger(startSeed)||startSeed<0||startSeed+runs-1>0xffffffff||
     !Number.isInteger(maxActions)||maxActions<1||maxActions>10000)throw new Error("Invalid experiment bounds");
   const started=performance.now(), rows=[], groups=[];
   for(const difficulty of DIFFICULTIES)for(const strategy of STRATEGIES){
     const group=[];
-    for(let i=0;i<runs;i++)group.push(await simulate({seed:startSeed+i,difficulty,strategy,maxActions,inputMs}));
+    for(let i=0;i<runs;i++)group.push(await simulate({seed:startSeed+i,difficulty,strategy,maxActions,inputMs,enemyPolicy,diagnostics}));
     rows.push(...group);groups.push({difficulty,strategy,...summarize(group)});
   }
   return {schemaVersion:2,revision,config:{runsPerGroup:runs,startSeed,maxActions,inputMs,settings:core.DEFAULT_TUNING,
-    portalAccounting:"legacy-no-turn",clock:"deterministic-input-plus-engine-delay"},groups,matchedComparisons:compareDifficulties(rows),rows,
+    portalAccounting:"legacy-no-turn",clock:"deterministic-input-plus-engine-delay",...(diagnostics?{enemyPolicy}: {})},groups,matchedComparisons:compareDifficulties(rows),rows,
     elapsedMs:Math.round(performance.now()-started)};
 }
 module.exports={simulate,runMatrix,compareDifficulties,STRATEGIES,DIFFICULTIES};

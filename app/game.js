@@ -58,7 +58,10 @@ const OMMCore = (() => {
   const { resolveEnemyDestinations } = ai;
 
   function planEnemyMovesForState(gameState, cfg = getEffectiveConfig(gameState.difficulty, gameState.stage, gameState.tuning || DEFAULT_TUNING)) {
-    // Preserve the legacy runtime tuning input until the behavior-preserving migration is complete.
+    // Experimental selection is Node-only and explicit. Browser gameplay remains the locked baseline.
+    if (headlessRuntime?.enemyPolicy === "tactical-v1") {
+      return ai.planTacticalMovesForState(gameState, cfg, tuning);
+    }
     return ai.planEnemyMovesForState(gameState, cfg, tuning);
   }
 
@@ -269,16 +272,17 @@ const OMMCore = (() => {
   }
 
   // Node-only runtime. Sequential isolated runs; canonical movement, AI, rewards and progression.
-  function createHeadlessRun({ seed, difficulty: selectedDifficulty = "standard", settings = DEFAULT_TUNING, inputMs = 1000 } = {}) {
+  function createHeadlessRun({ seed, difficulty: selectedDifficulty = "standard", settings = DEFAULT_TUNING, inputMs = 1000, enemyPolicy = "baseline" } = {}) {
     if (hasDOM) throw new Error("Headless runtime is not available in browser play");
     if (headlessRuntime?.busy) throw new Error("A headless command is still resolving");
     if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff || !isDifficulty(selectedDifficulty)) {
       throw new Error("Invalid seed or difficulty");
     }
     if (!Number.isInteger(inputMs) || inputMs < 0 || inputMs > 60000) throw new Error("Invalid input pace");
+    if (!["baseline", "tactical-v1"].includes(enemyPolicy)) throw new Error("Invalid enemy policy");
     difficulty = selectedDifficulty;
     tuning = sanitizeTuning({ ...DEFAULT_TUNING, ...settings });
-    const runtime = { now: 0, pending: null, busy: false };
+    const runtime = { now: 0, pending: null, busy: false, enemyPolicy };
     headlessRuntime = runtime;
     const gameState = initializeState(seed, "LAB");
     gameState.best = 0;
