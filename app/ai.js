@@ -228,7 +228,59 @@ const OMMAi = (() => {
     return mask;
   }
 
-  function teamOptions(gameState,current,index,cfg,tuning,assignments,exits,projected) {
+  // Ordinary cardinal route pressure only: abilities, enemy conflicts on future
+  // turns, revival and dynamic wall generation are deliberately not predicted.
+  function containmentModel(gameState, exits) {
+    const tiles=[], keys=new Map();
+    const routes=exits.map(exit=>{
+      const next=getNeighbors(exit).filter(tile=>inBounds(tile.x,tile.y)&&!gameState.walls.has(posKey(tile)));
+      return {portal:Boolean(gameState.portal&&samePosition(exit,gameState.portal)),next:next.map(tile=>{
+        const key=posKey(tile);
+        if(!keys.has(key)){keys.set(key,tiles.length);tiles.push(tile);}
+        return {index:keys.get(key),portal:Boolean(gameState.portal&&samePosition(tile,gameState.portal))};
+      })};
+    });
+    // At most the 9 distinct second-step cardinal squares around a grid cell.
+    if(tiles.length>31)throw Error("Containment mask overflow");
+    return {tiles,routes};
+  }
+
+  function continuationThreat(target, active, walls, tiles) {
+    let mask=0;
+    const reached=new Set([posKey(target)]);
+    let frontier=[target];
+    if(active){
+      for(let depth=0;depth<2;depth++){
+        const next=[];
+        for(const tile of frontier)for(const neighbor of getNeighbors(tile)){
+          const key=posKey(neighbor);
+          if(!inBounds(neighbor.x,neighbor.y)||walls.has(key)||reached.has(key))continue;
+          reached.add(key);next.push(neighbor);
+        }
+        frontier=next;
+      }
+    }
+    tiles.forEach((tile,index)=>{if(reached.has(posKey(tile)))mask|=1<<index;});
+    return mask;
+  }
+
+  function containmentRank(model,occupied,threat,continuation,continuationOccupied) {
+    let safe=0,worst=0,total=0;
+    for(let index=0;index<model.routes.length;index++){
+      const route=model.routes[index],bit=1<<index;
+      if(occupied&bit)continue;
+      if(!route.portal&&(threat&bit))continue;
+      safe++;
+      // Portal entry ends this stage before an enemy response; protect its
+      // status rather than treating it as an ordinary dead end.
+      const count=route.portal?5:route.next.filter(next=>
+        !(continuationOccupied&(1<<next.index))&&(next.portal||!(continuation&(1<<next.index)))).length;
+      worst=Math.max(worst,count);total+=count;
+    }
+    return [safe,worst,total];
+  }
+
+  function teamOptions(gameState,current,index,cfg,tuning,assignments,exits,projected,containment=null) {
     const enemy = current[index];
     const stationary = selectEnemyProposal(gameState,current,index,cfg,assignments,tuning);
     function option(target, nextEnemy, rank, moved, closing, kill) {
@@ -238,7 +290,10 @@ const OMMAi = (() => {
       return {target,nextEnemy,rank,moved,closing,kill,occupied,
         threat:active?coverageMask(target,exits,1):occupied,
         projected:active?coverageMask(target,projected,1):coverageMask(target,projected,0),
-        coordination:Number.isFinite(rank[2])?rank[2]:10000};
+        coordination:Number.isFinite(rank[2])?rank[2]:10000,
+        deviation:0,
+        continuation:containment?continuationThreat(target,active,gameState.walls,containment.tiles):0,
+        continuationOccupied:containment?coverageMask(target,containment.tiles,0):0};
     }
     if (enemy.stunned > 0) {
       return [option(stationary.target,stationary.nextEnemy,stationary.rank,0,0,0)];
@@ -251,17 +306,22 @@ const OMMAi = (() => {
     // Do not take a worse chase tier or greater BFS distance merely for containment.
     const best = others[0];
     const allowed = [...kills,...others.filter(c=>best&&c.rank[0]===best.rank[0]&&c.rank[1]===best.rank[1])];
-    const choices = allowed.map(c=>{
+    const alternatives=containment&&best&&best.rank[0]===0&&Number.isFinite(best.rank[1])
+      ? others.filter(c=>!allowed.includes(c)&&Number.isFinite(c.rank[1])&&c.rank[1]<=best.rank[1]+2)
+      : [];
+    const choices = [...allowed,...alternatives].map(c=>{
       const kill = Number(samePosition(c.target,gameState.player));
-      return option(c.target,{...enemy,x:c.target.x,y:c.target.y,intent:c.direction,intentLock:cfg.commitLockTurns},
+      const choice=option(c.target,{...enemy,x:c.target.x,y:c.target.y,intent:c.direction,intentLock:cfg.commitLockTurns},
         c.rank,1,Number(c.rank[0]===0),kill);
+      choice.deviation=Number(alternatives.includes(c));
+      return choice;
     });
     // Holding is a collision fallback, never preferred to an otherwise equal legal move.
     choices.push(option(enemy,{...enemy,intent:null,intentLock:0},[9,9,9,index],0,0,0));
     return choices;
   }
 
-  function planTacticalMovesForState(gameState,cfg,tuning) {
+  function planTacticalMovesForState(gameState,cfg,tuning,policy="tactical-v2") {
     const horizon=TACTICAL_HORIZONS[gameState.difficulty];
     if (!horizon) throw new Error("Unknown tactical difficulty");
     if (gameState.difficulty==="standard") {
@@ -271,10 +331,13 @@ const OMMAi = (() => {
     if (current.length>TEAM_LIMIT) throw new Error("Experimental team size exceeds six enemies");
     const assignments=assignInterceptTargets(gameState,current);
     const {exits,projected}=projectionTiles(gameState,horizon);
-    const candidates=current.map((_,index)=>teamOptions(gameState,current,index,cfg,tuning,assignments,exits,projected));
+    const containment=policy==="tactical-v3"&&gameState.difficulty==="hardcore"?containmentModel(gameState,exits):null;
+    const candidates=current.map((_,index)=>teamOptions(gameState,current,index,cfg,tuning,assignments,exits,projected,containment));
     const reserved=new Set(),selected=[];
-    let best=null,bestRank=null,combinations=0;
-    function search(index,kills,closing,moved,occupied,threat,projection,coordination) {
+    let best=null,bestRank=null,bestContainment=null,combinations=0;
+    // Store bounded leaf summaries only for v3. At most 5^6 assignments.
+    const alternatives=[];
+    function search(index,kills,closing,moved,occupied,threat,projection,coordination,deviations,continuation,continuationOccupied) {
       if (index===candidates.length) {
         combinations++;
         const coverage=[bitCount(occupied),bitCount(threat),bitCount(projection)];
@@ -282,25 +345,52 @@ const OMMAi = (() => {
           ? [-coverage[0],-coverage[1],-coverage[2]]
           : [-coverage[1],-coverage[2],-coverage[0]];
         const rank=[-kills,-closing,-moved,...tactical,coordination];
-        if (!bestRank||compareRank(rank,bestRank)<0) {
-          bestRank=rank;best=selected.slice();
+        const pressure=containment?containmentRank(containment,occupied,threat,continuation,continuationOccupied):null;
+        if (deviations===0&&(!bestRank||compareRank(rank,bestRank)<0)) {
+          bestRank=rank;best=selected.slice();bestContainment=pressure;
         }
+        if(containment)alternatives.push({choices:selected.slice(),rank,pressure,deviations,kills,closing,moved});
         return;
       }
       for (const candidate of candidates[index]) {
         const key=posKey(candidate.target);
-        if (reserved.has(key)) continue;
+        if (reserved.has(key)||deviations+candidate.deviation>1) continue;
         reserved.add(key);selected.push(candidate);
         search(index+1,kills+candidate.kill,closing+candidate.closing,moved+candidate.moved,
-          occupied|candidate.occupied,threat|candidate.threat,projection|candidate.projected,coordination+candidate.coordination);
+          occupied|candidate.occupied,threat|candidate.threat,projection|candidate.projected,coordination+candidate.coordination,
+          deviations+candidate.deviation,continuation|candidate.continuation,continuationOccupied|candidate.continuationOccupied);
         selected.pop();reserved.delete(key);
       }
     }
-    search(0,0,0,0,0,0,0,0);
+    search(0,0,0,0,0,0,0,0,0,0,0);
     if (!best) throw new Error("No collision-free team assignment");
+    const strictRank=bestRank;
+    const strictContainment=bestContainment;
+    let chosenDeviation=0;
+    if(containment&&strictRank[0]===0){
+      let selectedAlternative=null,selectedRank=null;
+      for(const alternative of alternatives){
+        if(alternative.kills!==0||alternative.moved< -strictRank[2])continue;
+        if(alternative.deviations===0){
+          // A stricter pressure objective may break a tie, never lose closing moves.
+          if(alternative.closing!==-strictRank[1])continue;
+        }else{
+          // A single off-best move is allowed only with an active closing ally,
+          // no lost team movement, and at most one fewer closing enemy.
+          if(alternative.closing<1||alternative.closing< -strictRank[1]-1)continue;
+        }
+        if(compareRank(alternative.pressure,strictContainment)>=0)continue;
+        const rank=[...alternative.pressure,alternative.deviations,...alternative.rank];
+        if(!selectedRank||compareRank(rank,selectedRank)<0){selectedAlternative=alternative;selectedRank=rank;}
+      }
+      if(selectedAlternative){
+        best=selectedAlternative.choices;bestRank=selectedAlternative.rank;
+        bestContainment=selectedAlternative.pressure;chosenDeviation=selectedAlternative.deviations;
+      }
+    }
     const resolvedMoves=resolveEnemyDestinations(current,best);
     const intentTiles=new Set(resolvedMoves.filter((enemy,index)=>!samePosition(enemy,current[index])).map(posKey));
-    return {resolvedMoves,intentTiles,diagnostics:{horizon,mode:"joint",combinations,rank:bestRank}};
+    return {resolvedMoves,intentTiles,diagnostics:{horizon,mode:"joint",combinations,rank:bestRank,...(containment?{strictRank,strictContainment,containment:bestContainment,deviations:chosenDeviation}: {})}};
   }
 
   return Object.freeze({ planEnemyMovesForState, planTacticalMovesForState, resolveEnemyDestinations, TACTICAL_HORIZONS });

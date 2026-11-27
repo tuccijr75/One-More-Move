@@ -18,7 +18,8 @@
     "lab:benchmark": "node scripts/run-lab.js --runs=100 --max-actions=160 --seed=777 --input-ms=1000",
     "refactor:check": "node tests/refactor.test.js",
     "lab:tactical": "node scripts/run-tactical.js",
-    "lab:heldout": "node scripts/run-tactical.js --held-out"
+    "lab:heldout": "node scripts/run-tactical.js --held-out",
+    "lab:containment": "node scripts/run-tactical.js --containment"
   },
   "build": {
     "appId": "com.tucci.onemoremove",

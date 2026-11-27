@@ -9,14 +9,15 @@ const root=path.resolve(__dirname,"..");
 const revision=cp.execFileSync("git",["rev-parse","HEAD"],{cwd:root,encoding:"utf8"}).trim();
 const sourceFiles=["app/grid.js","app/ai.js","app/config.js","app/generation.js","app/movement.js","app/progression.js","app/state.js","app/storage.js","app/presentation.js","app/game.js","scripts/lab.js","scripts/run-tactical.js","scripts/survival.js"];
 const args=process.argv.slice(2);
-if(args.length>1||(args.length===1&&args[0]!=="--held-out"))throw Error("Usage: node scripts/run-tactical.js [--held-out]");
-const heldOut=args[0]==="--held-out";
-const options={runs:heldOut?100:30,startSeed:heldOut?10001:777,maxActions:160,inputMs:1000,revision,diagnostics:true};
+if(args.length>1||(args.length===1&&!["--held-out","--containment"].includes(args[0])))throw Error("Usage: node scripts/run-tactical.js [--held-out|--containment]");
+const containment=args[0]==="--containment",heldOut=args[0]==="--held-out";
+const options={runs:heldOut||containment?100:30,startSeed:containment?20001:heldOut?10001:777,maxActions:160,inputMs:1000,revision,diagnostics:true};
 const thresholds=[15,30,50,80];
-const experiment=heldOut?"held-out":"screening";
+const experiment=containment?"containment":heldOut?"held-out":"screening";
+const referencePolicy=containment?"tactical-v2":"baseline",candidatePolicy=containment?"tactical-v3":"tactical-v2";
 (async()=>{
-  const baseline=await runMatrix({...options,enemyPolicy:"baseline"});
-  const candidate=await runMatrix({...options,enemyPolicy:"tactical-v2"});
+  const baseline=await runMatrix({...options,enemyPolicy:referencePolicy});
+  const candidate=await runMatrix({...options,enemyPolicy:candidatePolicy});
   const comparisons=baseline.groups.map(group=>{
     const a=baseline.rows.filter(r=>r.difficulty===group.difficulty&&r.strategy===group.strategy);
     const lookup=new Map(candidate.rows.filter(r=>r.difficulty===group.difficulty&&r.strategy===group.strategy).map(r=>[r.seed,r]));
@@ -39,10 +40,10 @@ const experiment=heldOut?"held-out":"screening";
       difficultyBounds.push({strategy,left,right,thresholds:matchedThresholds(a,b,thresholds)});
     }
   }
-  const control=comparisons.filter(r=>r.difficulty==="standard");
-  if(control.some(r=>r.geometryChanged!==0||r.equal!==r.pairs||r.baselineCensored!==r.candidateCensored))throw Error("Standard control diverged");
-  const report={schemaVersion:2,experiment,revision,options,thresholds,difficultyBounds,sourceHashes:Object.fromEntries(sourceFiles.map(name=>[name,crypto.createHash("sha256").update(fs.readFileSync(path.join(root,name))).digest("hex")])),baseline,candidate,comparisons};
-  const dir=path.join(root,"dist/lab");fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,heldOut?"held-out.json":"tactical.json"),JSON.stringify(report,null,2)+"\n");
-  console.log(JSON.stringify({revision,experiment,options,comparisons:comparisons.map(({thresholdBounds,...rest})=>rest),candidateDifficultyComparisons:candidate.matchedComparisons,tacticalThresholdBounds:difficultyBounds.filter(r=>r.strategy==="tactical"),baselineMs:baseline.elapsedMs,candidateMs:candidate.elapsedMs,unreachablePortals:[...baseline.rows,...candidate.rows].reduce((n,r)=>n+r.unreachablePortals,0)},null,2));
+  const control=comparisons.filter(r=>r.difficulty==="standard"||(containment&&r.difficulty==="hard"));
+  if(control.some(r=>r.geometryChanged!==0||r.equal!==r.pairs||r.baselineCensored!==r.candidateCensored))throw Error("Unchanged control diverged");
+  const report={schemaVersion:2,experiment,revision,referencePolicy,candidatePolicy,options,thresholds,difficultyBounds,sourceHashes:Object.fromEntries(sourceFiles.map(name=>[name,crypto.createHash("sha256").update(fs.readFileSync(path.join(root,name))).digest("hex")])),baseline,candidate,comparisons};
+  const dir=path.join(root,"dist/lab");fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,containment?"containment.json":heldOut?"held-out.json":"tactical.json"),JSON.stringify(report,null,2)+"\n");
+  console.log(JSON.stringify({revision,experiment,referencePolicy,candidatePolicy,options,comparisons:comparisons.map(({thresholdBounds,...rest})=>rest),candidateDifficultyComparisons:candidate.matchedComparisons,tacticalThresholdBounds:difficultyBounds.filter(r=>r.strategy==="tactical"),baselineMs:baseline.elapsedMs,candidateMs:candidate.elapsedMs,unreachablePortals:[...baseline.rows,...candidate.rows].reduce((n,r)=>n+r.unreachablePortals,0)},null,2));
   if([...baseline.rows,...candidate.rows].some(r=>r.unreachablePortals))throw Error("Unreachable portal observed");
 })().catch(error=>{console.error(error);process.exitCode=1});

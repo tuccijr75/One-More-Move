@@ -55,3 +55,7 @@ V1 failed the difficulty-gradient criterion (see TACTICS.md). V2 replaces sequen
 ## Held-out tactical evaluation
 
 V2 screening passed technical gates but did not establish monotonic difficulty. Run npm run lab:heldout for the predeclared independent seed set 10001–10100. The comparative artifact is dist/lab/held-out.json; it includes source provenance, all baseline and candidate rows, paired comparisons and finite-sample censoring bounds. The original screening artifact remains distinct. Default engine and legacy parity output are unchanged. See TACTICS.md for interpretation and promotion constraints.
+
+## Containment comparison
+
+The held-out v2 receipt confirms meaningful Hard differentiation but weak Hardcore separation. Run npm run lab:containment for a new 3,000-run v2/v3 comparison on seeds 20001–20100. Report referencePolicy/candidatePolicy explicitly (the legacy report field baseline refers to v2 in this experiment). The result is dist/lab/containment.json. Standard and Hard are unchanged controls. The existing v2 screening and held-out runs remain reproducible; browser and legacy parity checks are unchanged. V3 is evaluation only.
