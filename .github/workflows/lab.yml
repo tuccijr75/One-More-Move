@@ -12,6 +12,9 @@ on:
       - app/generation.js
       - app/movement.js
       - app/progression.js
+      - app/state.js
+      - app/storage.js
+      - app/presentation.js
       - scripts/lab.js
       - scripts/run-lab.js
       - .github/workflows/lab.yml

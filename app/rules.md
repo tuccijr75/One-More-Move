@@ -91,7 +91,7 @@ When I propose edits, I must:
 ## 3) Architecture Rules (How We Structure the Code)
 
 ### 3.1 Canonical modules (2.0 migration)
-Retain clearly labeled sections in the runtime until each module is extracted and independently verified. Grid geometry/pathfinding belongs to `app/grid.js`; enemy policy and destination resolution belong to `app/ai.js`; difficulty and tuning belong to `app/config.js`; seeded world generation belongs to `app/generation.js`; movement and Focus abilities belong to `app/movement.js`; stage transitions, completed-turn accounting and scheduled rewards belong to `app/progression.js` (shared browser and Node sources). Remaining runtime sections include:
+Retain clearly labeled sections in the runtime until each module is extracted and independently verified. Grid geometry/pathfinding belongs to `app/grid.js`; enemy policy and destination resolution belong to `app/ai.js`; difficulty and tuning belong to `app/config.js`; seeded world generation belongs to `app/generation.js`; movement and Focus abilities belong to `app/movement.js`; stage transitions, completed-turn accounting and scheduled rewards belong to `app/progression.js`; initial state construction belongs to `app/state.js`; persistent preferences and scores belong to `app/storage.js`; browser presentation, input and audio belong to `app/presentation.js` (shared browser and Node sources). Remaining runtime sections include:
 - `/* DEBUG / ASSERTS */`
 
 No external JS dependencies. No bundlers. Browser modules load in dependency order; Node uses the same sources. Every extraction must preserve matched-seed benchmark rows, distribution parity and the full regression suite before adoption. This implements the previously approved architecture migration, not a new gameplay rule.

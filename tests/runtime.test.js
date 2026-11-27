@@ -94,6 +94,9 @@ function createBrowser() {
   vm.runInContext(fs.readFileSync(require.resolve("../app/generation.js"), "utf8"), sandbox);
   vm.runInContext(fs.readFileSync(require.resolve("../app/movement.js"), "utf8"), sandbox);
   vm.runInContext(fs.readFileSync(require.resolve("../app/progression.js"), "utf8"), sandbox);
+  vm.runInContext(fs.readFileSync(require.resolve("../app/state.js"), "utf8"), sandbox);
+  vm.runInContext(fs.readFileSync(require.resolve("../app/storage.js"), "utf8"), sandbox);
+  vm.runInContext(fs.readFileSync(require.resolve("../app/presentation.js"), "utf8"), sandbox);
   vm.runInContext(fs.readFileSync(require.resolve("../app/game.js"), "utf8"), sandbox);
   return { window: windowObject };
 }

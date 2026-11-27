@@ -106,12 +106,18 @@ const configSource = fs.readFileSync(require.resolve("../app/config.js"), "utf8"
 const generationSource = fs.readFileSync(require.resolve("../app/generation.js"), "utf8");
 const movementSource = fs.readFileSync(require.resolve("../app/movement.js"), "utf8");
 const progressionSource = fs.readFileSync(require.resolve("../app/progression.js"), "utf8");
+const stateSource = fs.readFileSync(require.resolve("../app/state.js"), "utf8");
+const storageSource = fs.readFileSync(require.resolve("../app/storage.js"), "utf8");
+const presentationSource = fs.readFileSync(require.resolve("../app/presentation.js"), "utf8");
 vm.runInContext(gridSource, context);
 vm.runInContext(aiSource, context);
 vm.runInContext(configSource, context);
 vm.runInContext(generationSource, context);
 vm.runInContext(movementSource, context);
 vm.runInContext(progressionSource, context);
+vm.runInContext(stateSource, context);
+vm.runInContext(storageSource, context);
+vm.runInContext(presentationSource, context);
 vm.runInContext(fs.readFileSync(require.resolve("../app/game.js"), "utf8"), context);
 
 assert.equal(typeof windowObject.__ommGetState, "function", "browser boot must expose state access");
@@ -137,6 +143,9 @@ function bootWithStorage(raw, inaccessible = false) {
   vm.runInContext(generationSource, sandbox);
   vm.runInContext(movementSource, sandbox);
   vm.runInContext(progressionSource, sandbox);
+  vm.runInContext(stateSource, sandbox);
+  vm.runInContext(storageSource, sandbox);
+  vm.runInContext(presentationSource, sandbox);
   vm.runInContext(source, sandbox);
   return { api: browser, state: browser.__ommGetState(), backing };
 }
