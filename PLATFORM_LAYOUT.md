@@ -13,3 +13,7 @@ Owner-approved target: one responsive browser game, used on desktop, phones and 
 Run `npm run check` before release. Run `npm run build:web` and `npm run check:web` for web output; run `npm run build` for desktop packaging with dependencies installed. No publish is automated.
 
 Legacy `app/web`, `app/ios`, `app/android`, Capacitor config and old iOS notes are retained for historical reference and excluded from active packaging. The old iOS workflow is archived outside .github/workflows. Do not use these copies for new releases.
+
+## Development test hosting
+
+Owner-approved destination: https://manicmike.neocities.org/omm/ (pending authenticated upload and live verification). No Vercel dependency. See [NEOCITIES.md](docs/NEOCITIES.md) for scoped deployment and verification.

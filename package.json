@@ -8,9 +8,11 @@
     "start": "electron .",
     "build": "npm run check && electron-builder --publish never",
     "test": "node tests/core.test.js && node tests/stress.test.js && node tests/browser.test.js && node tests/runtime.test.js && node tests/parity.test.js && node tests/mobile-input.test.js",
-    "check": "node --check main.js && node --check app/game.js && node --check app/touch-controls.js && node --check scripts/build-web.js && npm test && npm run build:web && npm run check:web",
+    "check": "node --check main.js && node --check app/game.js && node --check app/touch-controls.js && node --check scripts/build-web.js && npm test && npm run build:web && npm run check:web && node --check scripts/neocities.js && node scripts/neocities.js",
     "build:web": "node scripts/build-web.js",
-    "check:web": "node scripts/build-web.js --check"
+    "check:web": "node scripts/build-web.js --check",
+    "deploy:check": "npm run check:web && node scripts/neocities.js",
+    "deploy:neocities": "npm run check && node scripts/neocities.js --upload"
   },
   "build": {
     "appId": "com.tucci.onemoremove",
