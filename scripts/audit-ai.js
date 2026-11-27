@@ -35,7 +35,8 @@ function audit(event,sourcePolicy,strategy,index){
   }
   const v2=plans["tactical-v2"],v3=plans["tactical-v3"],v4=plans["tactical-v4"];
   assert.deepEqual(plans[sourcePolicy].resolvedMoves,event.resolvedMoves,"actual source plan must replay");
-  assert.deepEqual(plans[sourcePolicy].diagnostics,event.diagnostics,"actual source diagnostics must replay");
+  // JSON capture normalizes signed zero; compare in the same serialization domain.
+  assert.deepEqual(JSON.parse(JSON.stringify(plans[sourcePolicy].diagnostics)),event.diagnostics,"actual source diagnostics must replay");
   assert.deepEqual(v3.diagnostics.strictRank,v2.diagnostics.rank);
   assert.deepEqual(v4.diagnostics.strictRank,v2.diagnostics.rank);
   assert.deepEqual(v4.diagnostics.rank.slice(0,3),v2.diagnostics.rank.slice(0,3));

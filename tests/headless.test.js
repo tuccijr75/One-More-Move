@@ -42,6 +42,12 @@ async function trace() {
   assert.equal((await traced.dispatch({type:"wait",ms:1})).enemyTurn,null,"wait must not repeat previous trace");
   assert.equal((await traced.dispatch({type:"move",dx:2,dy:0})).enemyTurn,null,"rejected move must not repeat trace");
   assert.throws(()=>core.createHeadlessRun({seed:1,traceEnemyTurns:"yes"}),/Invalid enemy trace flag/);
+  const joint = core.createHeadlessRun({seed:777,difficulty:"hardcore",enemyPolicy:"tactical-v2",traceEnemyTurns:true});
+  const captured = await joint.dispatch({type:"move",dx:1,dy:0});
+  const input=captured.enemyTurn.before;
+  const jointReplay=core.planEnemyMovesForState({...input,walls:new Set(input.walls)});
+  assert.deepEqual(jointReplay.resolvedMoves,captured.enemyTurn.resolvedMoves);
+  assert.deepEqual(JSON.parse(JSON.stringify(jointReplay.diagnostics)),captured.enemyTurn.diagnostics,"diagnostic replay uses JSON number semantics");
   const old = core.createHeadlessRun({seed:1});
   const next = core.createHeadlessRun({seed:2,difficulty:"hardcore"});
   assert.throws(()=>old.snapshot(), /no longer active/);
