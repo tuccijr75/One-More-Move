@@ -111,7 +111,7 @@ async function simulate({seed,difficulty,strategy,maxActions=160,inputMs=1000}) 
       reason=core.hasPlayerEscape(view(s))?"policy-no-route":"no-route";break;
     }
     if(decision.proxy!==null){riskSamples++;allImmediateRisk+=Number(decision.proxy);}
-    if(strategy==="tactical"&&!c.ability&&!c.portal&&c.immediateRisk&&s.cooldownMs===0&&!s.phaseArmed) {
+    if(strategy==="tactical"&&!c.ability&&!c.portal&&!(c.dx&&c.dy)&&c.immediateRisk&&s.cooldownMs===0&&!s.phaseArmed) {
       if(s.tokens.freeze>0&&!s.freezeNext){s=await send({type:"ability",name:"freeze"});rewardUses.freeze++;}
       else if(s.tokens.timeFreeze>0&&!s.holdSpace){s=await send({type:"ability",name:"time-start"});rewardUses.timeFreeze++;}
     }
