@@ -2,67 +2,21 @@
 
 /* =========================
    ONE MORE MOVE — CANONICAL ENGINE
-   Canonical runtime; shared grid and AI modules supply deterministic geometry and enemy policy.
+   Canonical runtime; shared modules own geometry, AI, configuration and generation.
 ========================= */
 
 const OMMCore = (() => {
   const DEBUG = false;
   const grid = typeof module !== "undefined" && module.exports ? require("./grid.js") : OMMGrid;
   const { GRID_SIZE, posKey, samePosition, inBounds, manhattan, getNeighbors, reachableTilesFrom, shortestPathDist, shortestPathDistToAny, buildBlockedSet, countEscapeOptionsAt } = grid;
+  const config = typeof module !== "undefined" && module.exports ? require("./config.js") : OMMConfig;
+  const { SETTINGS_VERSION, WALL_MAX, WALL_ADD_EVERY_STAGES, GLOBAL_COOLDOWN_MS, DEFAULT_TUNING, BASE_DIFFICULTY_CONFIG, isDifficulty, sanitizeTuning, getEffectiveConfig } = config;
+  const generation = typeof module !== "undefined" && module.exports ? require("./generation.js") : OMMGeneration;
+  const { createRng, randomSeed, buildWalls, enemyCountForStage, spawnEnemy, computeNextPortalTurn, spawnPortalIfNeeded, chooseRevivalTile } = generation;
   const CELL_SIZE = 60;
-  const SETTINGS_VERSION = 2;
   const MEMORY_STORE_KEY = "one-more-move-memory-v2";
   const INTENT_FLASH_MS = 100;
   const DEATH_FREEZE_MS = 280;
-  const WALL_ADD_EVERY_STAGES = 5;
-  const WALL_MAX = 30;
-  const GLOBAL_COOLDOWN_MS = 30000;
-
-  const DEFAULT_TUNING = Object.freeze({
-    version: SETTINGS_VERSION,
-    walls: 10,
-    initialEnemies: 2,
-    initialSpawn: 10,
-    rampSpeed: 15,
-    escapePenalty: 1.5,
-    gapFillBonus: 3.0,
-  });
-
-  const BASE_DIFFICULTY_CONFIG = Object.freeze({
-    standard: Object.freeze({
-      turnDelay: 150,
-      showIntentFlash: true,
-      spawnFloor: 3,
-      dangerFeedback: true,
-      chaseWeight: 1,
-      interceptWeight: 1,
-      trapWeight: 1,
-      commitLockTurns: 1,
-      squeezeBonus: 2,
-    }),
-    hard: Object.freeze({
-      turnDelay: 120,
-      showIntentFlash: true,
-      spawnFloor: 3,
-      dangerFeedback: true,
-      chaseWeight: 1,
-      interceptWeight: 2,
-      trapWeight: 2,
-      commitLockTurns: 2,
-      squeezeBonus: 5,
-    }),
-    hardcore: Object.freeze({
-      turnDelay: 80,
-      showIntentFlash: false,
-      spawnFloor: 2,
-      dangerFeedback: false,
-      chaseWeight: 1,
-      interceptWeight: 3,
-      trapWeight: 3,
-      commitLockTurns: 3,
-      squeezeBonus: 9,
-    }),
-  });
 
   const hasDOM = typeof window !== "undefined" && typeof document !== "undefined";
   let ui = null;
@@ -87,10 +41,6 @@ const OMMCore = (() => {
 
   function tuningKey() {
     return `one-more-move-tuning-v${SETTINGS_VERSION}`;
-  }
-
-  function isDifficulty(value) {
-    return typeof value === "string" && Object.prototype.hasOwnProperty.call(BASE_DIFFICULTY_CONFIG, value);
   }
 
   function isRecord(value) {
@@ -148,67 +98,8 @@ const OMMCore = (() => {
     saveMemoryStore();
   }
 
-  function sanitizeTuning(value) {
-    return {
-      version: SETTINGS_VERSION,
-      walls: clampInteger(value.walls, 0, WALL_MAX, DEFAULT_TUNING.walls),
-      initialEnemies: clampInteger(value.initialEnemies, 1, 6, DEFAULT_TUNING.initialEnemies),
-      initialSpawn: clampInteger(value.initialSpawn, 3, 30, DEFAULT_TUNING.initialSpawn),
-      rampSpeed: clampInteger(value.rampSpeed, 5, 60, DEFAULT_TUNING.rampSpeed),
-      escapePenalty: clampNumber(value.escapePenalty, 0.5, 4, DEFAULT_TUNING.escapePenalty),
-      gapFillBonus: clampNumber(value.gapFillBonus, 0, 6, DEFAULT_TUNING.gapFillBonus),
-    };
-  }
-
-  function clampInteger(value, min, max, fallback) {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return fallback;
-    return Math.max(min, Math.min(max, Math.round(numeric)));
-  }
-
-  function clampNumber(value, min, max, fallback) {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return fallback;
-    return Math.max(min, Math.min(max, numeric));
-  }
-
   /* =========================
-     RNG
-  ========================= */
-
-  function createRng(seed) {
-    let value = seed >>> 0;
-    return function next() {
-      let t = (value += 0x6d2b79f5);
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
-  function randomSeed() {
-    if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
-      const values = new Uint32Array(1);
-      crypto.getRandomValues(values);
-      return values[0];
-    }
-    return Math.floor(Math.random() * 4294967296) >>> 0;
-  }
-
-  function randInt(gameState, max) {
-    return Math.floor(gameState.rng() * max);
-  }
-
-  function visualPhase(seed, enemyId) {
-    let value = (seed ^ Math.imul(enemyId + 1, 0x9e3779b1)) >>> 0;
-    value ^= value >>> 16;
-    value = Math.imul(value, 0x7feb352d);
-    value ^= value >>> 15;
-    return ((value >>> 0) / 4294967296) * Math.PI * 2;
-  }
-
-  /* =========================
-     GRID UTILS
+     MOVEMENT / ESCAPE
   ========================= */
 
   // Escape adjudication includes held movement rewards; AI/spawn/revival geometry remains unchanged.
@@ -249,49 +140,6 @@ const OMMCore = (() => {
     return !gameState.phaseUsed && hasPhaseDestination(gameState, enemyKeys);
   }
 
-  function buildWalls(gameState, count) {
-    const avoid = new Set([posKey(gameState.player)]);
-    if (gameState.portal) avoid.add(posKey(gameState.portal));
-    gameState.enemies.forEach((enemy) => avoid.add(posKey(enemy)));
-    const passableCount = GRID_SIZE * GRID_SIZE - count;
-    const minimumReachable = Math.max(18, Math.floor(passableCount * 0.5));
-
-    for (let attempt = 0; attempt < 400; attempt++) {
-      const walls = new Set();
-      while (walls.size < count) {
-        const candidate = `${randInt(gameState, GRID_SIZE)},${randInt(gameState, GRID_SIZE)}`;
-        if (!avoid.has(candidate)) walls.add(candidate);
-      }
-
-      const candidateState = { ...gameState, walls };
-      const reachable = reachableTilesFrom(gameState.player, walls);
-      const escapes = countEscapeOptionsAt(candidateState, gameState.player, new Set(), false);
-      if (reachable.size >= minimumReachable && escapes >= 2) return walls;
-    }
-
-    return new Set(gameState.walls || []);
-  }
-
-  /* =========================
-     DIFFICULTY
-  ========================= */
-
-  function getEffectiveConfig(selectedDifficulty, stage, selectedTuning) {
-    const base = isDifficulty(selectedDifficulty) ? BASE_DIFFICULTY_CONFIG[selectedDifficulty] : BASE_DIFFICULTY_CONFIG.standard;
-    const level = Math.max(1, stage || 1);
-    const pressure = Math.min(1.3, 1 + 0.02 * (level - 1));
-    const speed = Math.max(0.8, 1 - 0.008 * (level - 1));
-    const tuningTrap = selectedTuning.escapePenalty / DEFAULT_TUNING.escapePenalty;
-    const tuningIntercept = selectedTuning.gapFillBonus / DEFAULT_TUNING.gapFillBonus;
-
-    return Object.freeze({
-      ...base,
-      turnDelay: Math.round(base.turnDelay * speed),
-      trapWeight: base.trapWeight * pressure * tuningTrap,
-      interceptWeight: base.interceptWeight * pressure * tuningIntercept,
-    });
-  }
-
   /* =========================
      AI POLICY
   ========================= */
@@ -302,124 +150,6 @@ const OMMCore = (() => {
   function planEnemyMovesForState(gameState, cfg = getEffectiveConfig(gameState.difficulty, gameState.stage, gameState.tuning || DEFAULT_TUNING)) {
     // Preserve the legacy runtime tuning input until the behavior-preserving migration is complete.
     return ai.planEnemyMovesForState(gameState, cfg, tuning);
-  }
-
-  /* =========================
-     SPAWN / PROGRESSION
-  ========================= */
-
-  function isEdgeTile(position) {
-    return position.x === 0 || position.y === 0 || position.x === GRID_SIZE - 1 || position.y === GRID_SIZE - 1;
-  }
-
-  function enemyCountForStage(stage) {
-    if (stage <= 5) return 2;
-    if (stage <= 10) return 3;
-    if (stage <= 15) return 4;
-    if (stage <= 20) return 5;
-    return 6;
-  }
-
-  function getSafeSpawnTiles(gameState) {
-    const enemyKeys = new Set(gameState.enemies.map(posKey));
-    const tiles = [];
-    for (let y = 0; y < GRID_SIZE; y++) {
-      for (let x = 0; x < GRID_SIZE; x++) {
-        const tile = { x, y };
-        const key = posKey(tile);
-        if (!isEdgeTile(tile)) continue;
-        if (gameState.walls.has(key) || enemyKeys.has(key) || samePosition(tile, gameState.player)) continue;
-        if (manhattan(tile, gameState.player) <= 1) continue;
-        const hypothetical = new Set(enemyKeys);
-        hypothetical.add(key);
-        if (countEscapeOptionsAt(gameState, gameState.player, hypothetical, true) < 2) continue;
-        tiles.push(tile);
-      }
-    }
-    return tiles;
-  }
-
-  function pickSpawnTile(gameState) {
-    const safe = getSafeSpawnTiles(gameState);
-    if (!safe.length) return null;
-    const trail = gameState.playerTrail || [];
-    const weights = safe.map((tile) => trail.reduce((weight, trailKey) => {
-      const [x, y] = trailKey.split(",").map(Number);
-      return weight * (1 + Math.abs(tile.x - x) + Math.abs(tile.y - y));
-    }, 1));
-    const total = weights.reduce((sum, weight) => sum + weight, 0);
-    let roll = gameState.rng() * total;
-    for (let index = 0; index < safe.length; index++) {
-      roll -= weights[index];
-      if (roll <= 0) return safe[index];
-    }
-    return safe[safe.length - 1];
-  }
-
-  function spawnEnemy(gameState) {
-    const tile = pickSpawnTile(gameState);
-    if (!tile) return false;
-    const id = gameState.nextEnemyId++;
-    gameState.enemies.push({
-      id,
-      x: tile.x,
-      y: tile.y,
-      phase: visualPhase(gameState.seed, id),
-      intent: null,
-      intentLock: 0,
-      stunned: 0,
-    });
-    return true;
-  }
-
-  function computeNextPortalTurn(stage, currentTurn) {
-    const stageAdjustment = Math.min(5, Math.floor(Math.max(0, stage - 1) / 5));
-    return currentTurn + Math.max(10, 15 - stageAdjustment);
-  }
-
-  function spawnPortalIfNeeded(gameState) {
-    if (gameState.portal || gameState.turns < gameState.nextPortalAtTurn) return;
-    const reachable = reachableTilesFrom(gameState.player, gameState.walls);
-    const candidates = [...reachable]
-      .map((key) => {
-        const [x, y] = key.split(",").map(Number);
-        return { x, y };
-      })
-      .filter((tile) => !samePosition(tile, gameState.player))
-      .filter((tile) => !gameState.enemies.some((enemy) => samePosition(enemy, tile)));
-
-    if (!candidates.length) {
-      gameState.nextPortalAtTurn++;
-      return;
-    }
-    gameState.portal = candidates[randInt(gameState, candidates.length)];
-    debugAssertPortal(gameState);
-  }
-
-  function chooseRevivalTile(gameState) {
-    const reachable = reachableTilesFrom(gameState.player, gameState.walls);
-    const enemyKeys = new Set(gameState.enemies.map(posKey));
-    const candidates = [];
-
-    for (const key of reachable) {
-      if (enemyKeys.has(key)) continue;
-      const [x, y] = key.split(",").map(Number);
-      const tile = { x, y };
-      const escapes = countEscapeOptionsAt(gameState, tile, enemyKeys, false);
-      if (escapes < 2) continue;
-      const minimumDistance = gameState.enemies.length
-        ? Math.min(...gameState.enemies.map((enemy) => manhattan(enemy, tile)))
-        : GRID_SIZE * 2;
-      candidates.push({ tile, escapes, minimumDistance });
-    }
-
-    candidates.sort((a, b) =>
-      b.minimumDistance - a.minimumDistance ||
-      b.escapes - a.escapes ||
-      a.tile.y - b.tile.y ||
-      a.tile.x - b.tile.x
-    );
-    return candidates[0]?.tile || null;
   }
 
   /* =========================
@@ -527,7 +257,7 @@ const OMMCore = (() => {
 
   function finalizeTurn(gameState) {
     gameState.turns++;
-    spawnPortalIfNeeded(gameState);
+    spawnPortalIfNeeded(gameState, debugAssertPortal);
     grantScheduledRewards(gameState);
 
     if (gameState.turns > gameState.best) {

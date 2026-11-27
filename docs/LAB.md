@@ -31,3 +31,7 @@ Locked baseline: 272661577b40c7654c7138f2fc808439570a6e4f. GitHub benchmark run 
 ## AI extraction gate
 
 Grid extraction passed Core Validation run 46002173717, including the locked 300-simulation equivalence gate, and benchmark run 46002173809. The next extraction moves enemy ranking, intercept assignment, proposals, conflict resolution and intent generation to `app/ai.js`. Explicit configuration and tuning arguments preserve the previous runtime-selected tuning; no tactical ranking or difficulty parameters are modified. The same locked baseline gate applies, and benchmark provenance now includes ai.js. Do not interpret intent-only differences as difficulty separation.
+
+## Configuration and generation extraction
+
+AI extraction at d424d4f43121c559bd0fee30fabc9d9144bc7e5b passed Core Validation 46002775667, the locked equivalence gate, benchmark 46002775562 and Roblox Validation 46002785873. Extract immutable difficulty profiles, tuning sanitization and configuration into config.js; move the existing RNG, wall and enemy generation, portal generation and revival selection into generation.js. Retain the legacy runtime tuning input and all stage/cooldown accounting until the behavior-preserving gate completes. The portal debug assertion is passed explicitly by the runtime; the RNG sequence and generation algorithms are unchanged. All four module hashes enter future benchmark provenance.
