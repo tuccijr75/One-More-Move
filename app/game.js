@@ -154,6 +154,7 @@ const OMMCore = (() => {
       if (!activeState(gameState)) return false;
 
       const plan = planEnemyMovesForState(gameState, cfg);
+      if (headlessRuntime?.captureEnemyTurn) headlessRuntime.captureEnemyTurn(plan);
       if (cfg.showIntentFlash && plan.intentTiles.size) {
         gameState.effects.intentTiles = plan.intentTiles;
         await delay(INTENT_FLASH_MS);
@@ -272,7 +273,7 @@ const OMMCore = (() => {
   }
 
   // Node-only runtime. Sequential isolated runs; canonical movement, AI, rewards and progression.
-  function createHeadlessRun({ seed, difficulty: selectedDifficulty = "standard", settings = DEFAULT_TUNING, inputMs = 1000, enemyPolicy = "baseline" } = {}) {
+  function createHeadlessRun({ seed, difficulty: selectedDifficulty = "standard", settings = DEFAULT_TUNING, inputMs = 1000, enemyPolicy = "baseline", traceEnemyTurns = false } = {}) {
     if (hasDOM) throw new Error("Headless runtime is not available in browser play");
     if (headlessRuntime?.busy) throw new Error("A headless command is still resolving");
     if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff || !isDifficulty(selectedDifficulty)) {
@@ -280,6 +281,7 @@ const OMMCore = (() => {
     }
     if (!Number.isInteger(inputMs) || inputMs < 0 || inputMs > 60000) throw new Error("Invalid input pace");
     if (!["baseline", "tactical-v2", "tactical-v3", "tactical-v4"].includes(enemyPolicy)) throw new Error("Invalid enemy policy");
+    if (typeof traceEnemyTurns !== "boolean") throw new Error("Invalid enemy trace flag");
     difficulty = selectedDifficulty;
     tuning = sanitizeTuning({ ...DEFAULT_TUNING, ...settings });
     const runtime = { now: 0, pending: null, busy: false, enemyPolicy };
@@ -290,9 +292,7 @@ const OMMCore = (() => {
     function assertActive() {
       if (headlessRuntime !== runtime || !activeState(gameState)) throw new Error("Headless run is no longer active");
     }
-    function snapshot() {
-      assertActive();
-      if (runtime.busy) throw new Error("Cannot snapshot a pending turn");
+    function copyState() {
       const { rng, runId, effects, ...fields } = gameState;
       return JSON.parse(JSON.stringify({
         ...fields,
@@ -301,14 +301,29 @@ const OMMCore = (() => {
         cooldownMs: Math.max(0, gameState.rewardCooldownUntil - runtime.now),
       }));
     }
+    function snapshot() {
+      assertActive();
+      if (runtime.busy) throw new Error("Cannot snapshot a pending turn");
+      return copyState();
+    }
+    if (traceEnemyTurns) {
+      runtime.captureEnemyTurn = plan => {
+        runtime.enemyTurn = {
+          before: copyState(),
+          resolvedMoves: JSON.parse(JSON.stringify(plan.resolvedMoves)),
+          diagnostics: plan.diagnostics ? JSON.parse(JSON.stringify(plan.diagnostics)) : null,
+        };
+      };
+    }
     async function dispatch(action) {
       assertActive();
       if (runtime.busy) throw new Error("Concurrent commands are not supported");
       if (!action || typeof action !== "object") throw new Error("Invalid action");
-      if (gameState.gameOver) return { accepted: false, state: snapshot() };
+      if (gameState.gameOver) return { accepted: false, state: snapshot(), ...(traceEnemyTurns ? {enemyTurn:null} : {}) };
       runtime.busy = true;
       try {
         runtime.pending = null;
+        if (traceEnemyTurns) runtime.enemyTurn = null;
         let accepted;
         if (action.type === "wait") {
           if (!Number.isInteger(action.ms) || action.ms < 1 || action.ms > 60000) throw new Error("Invalid wait");
@@ -324,7 +339,7 @@ const OMMCore = (() => {
         if (runtime.pending) await runtime.pending;
         if (gameState.inputLocked && !gameState.gameOver) throw new Error("Turn failed to unlock");
         runtime.busy = false;
-        return { accepted, state: snapshot() };
+        return { accepted, state: snapshot(), ...(traceEnemyTurns ? {enemyTurn:runtime.enemyTurn} : {}) };
       } finally {
         runtime.busy = false;
       }

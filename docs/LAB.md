@@ -67,3 +67,7 @@ npm run lab:profile writes dist/lab/profile.json. Separate CI workflow AI Planne
 ## Adversarial screen
 
 V3 did not pass the difficulty-gradient criterion. npm run lab:adversarial compares v2 with v4 on 40001–40030 and writes dist/lab/adversarial.json. The expanded profile includes contested layouts and all three candidate versions, reports bounded response search cost, and retains earlier experiments in Git history and CI artifacts. Legacy gameplay and baseline equivalence remain unchanged.
+
+## Actual-turn decision audit
+
+npm run lab:audit writes dist/lab/audit.json and runs in the separate AI Decision Audit workflow. It uses opt-in detached headless traces, 60 runs and up to 1,920 exact observed enemy-planning inputs, including actual portal, ability and stun state. All three candidate decisions are replayed on the same input; source-policy replay must exactly match the original captured output. No policy changes, no default-row schema changes, no promotion. See TACTICS.md for bounds and limitations.

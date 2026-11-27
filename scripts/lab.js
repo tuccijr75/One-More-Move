@@ -86,8 +86,9 @@ function choose(s, strategy, rng) {
   return {candidate:evaluated[0],proxy:tactical||defensive?evaluated.every(c=>c.immediateRisk===1):null};
 }
 
-async function simulate({seed,difficulty,strategy,maxActions=160,inputMs=1000,enemyPolicy="baseline",diagnostics=false}) {
-  const run=core.createHeadlessRun({seed,difficulty,inputMs,enemyPolicy});
+async function simulate({seed,difficulty,strategy,maxActions=160,inputMs=1000,enemyPolicy="baseline",diagnostics=false,onEnemyTurn=null}) {
+  if(onEnemyTurn!==null&&typeof onEnemyTurn!=="function")throw Error("Invalid enemy turn observer");
+  const run=core.createHeadlessRun({seed,difficulty,inputMs,enemyPolicy,traceEnemyTurns:onEnemyTurn!==null});
   const policyRng=core.createRng((seed^0x85ebca6b)>>>0);
   const rewardUses={wall:0,phase:0,diag:0,freeze:0,timeFreeze:0};
   let actions=0,waits=0,portalSpawns=0,unreachablePortals=0,portalEntries=0;
@@ -106,6 +107,7 @@ async function simulate({seed,difficulty,strategy,maxActions=160,inputMs=1000,en
     const result=await run.dispatch(action);
     if(!result.accepted)throw new Error("Policy command rejected: "+JSON.stringify({seed,difficulty,strategy,action,turn:s.turns,stage:s.stage}));
     if(action.type!=="wait")record(result.state);
+    if(result.enemyTurn&&onEnemyTurn)onEnemyTurn(result.enemyTurn);
     return result.state;
   }
   while(actions<maxActions&&!s.gameOver) {

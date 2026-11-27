@@ -25,6 +25,23 @@ async function trace() {
 
 (async () => {
   assert.deepEqual(await trace(), await trace(), "same seed and action trace must be deterministic");
+  const untraced = core.createHeadlessRun({seed:777});
+  const expected = await untraced.dispatch({type:"move",dx:1,dy:0});
+  assert.equal(Object.hasOwn(expected,"enemyTurn"),false);
+  const traced = core.createHeadlessRun({seed:777,traceEnemyTurns:true});
+  const result = await traced.dispatch({type:"move",dx:1,dy:0});
+  assert.deepEqual(result.state,expected.state,"trace must not affect state");
+  assert.equal(result.enemyTurn.before.turns,0);
+  assert.deepEqual(result.enemyTurn.before.player,{x:6,y:5});
+  const before=result.enemyTurn.before;
+  const replay=core.planEnemyMovesForState({...before,walls:new Set(before.walls)});
+  assert.deepEqual(replay.resolvedMoves,result.enemyTurn.resolvedMoves,"trace captures exact planning input");
+  result.enemyTurn.before.player.x=-100;
+  result.enemyTurn.resolvedMoves[0].x=-100;
+  assert.deepEqual(traced.snapshot(),expected.state,"trace cannot mutate runtime");
+  assert.equal((await traced.dispatch({type:"wait",ms:1})).enemyTurn,null,"wait must not repeat previous trace");
+  assert.equal((await traced.dispatch({type:"move",dx:2,dy:0})).enemyTurn,null,"rejected move must not repeat trace");
+  assert.throws(()=>core.createHeadlessRun({seed:1,traceEnemyTurns:"yes"}),/Invalid enemy trace flag/);
   const old = core.createHeadlessRun({seed:1});
   const next = core.createHeadlessRun({seed:2,difficulty:"hardcore"});
   assert.throws(()=>old.snapshot(), /no longer active/);
