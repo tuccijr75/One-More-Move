@@ -429,3 +429,16 @@ input[type="range"] {
     grid-template-columns: 1fr;
   }
 }
+
+/* Web-first mobile input: keyboard and touch share the same engine. */
+.touch-hint, .touch-movement { display: none; }
+.touch-hint { margin: 0; color: var(--muted); font-size: 12px; text-align: center; }
+.touch-movement { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.touch-movement button { min-height: 44px; font-size: 22px; }
+@media (pointer: coarse), (max-width: 700px) {
+  .touch-hint { display: block; }
+  .touch-movement { display: grid; }
+  .touch-actions button, .touch-special button, .overlay-actions button { min-height: 44px; }
+  input[type="number"] { font-size: 16px; }
+  .touch-special { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
+}

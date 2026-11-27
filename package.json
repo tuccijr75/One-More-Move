@@ -6,23 +6,26 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder",
-    "cap:sync": "npx cap sync",
-    "ios:open": "npx cap open ios",
-    "ios:run": "npx cap run ios",
-    "test": "node tests/core.test.js && node tests/stress.test.js && node tests/browser.test.js && node tests/runtime.test.js && node tests/parity.test.js",
-    "check": "node --check app/game.js && node --check app/touch-controls.js && npm test"
+    "build": "npm run check && electron-builder --publish never",
+    "test": "node tests/core.test.js && node tests/stress.test.js && node tests/browser.test.js && node tests/runtime.test.js && node tests/parity.test.js && node tests/mobile-input.test.js",
+    "check": "node --check main.js && node --check app/game.js && node --check app/touch-controls.js && node --check scripts/build-web.js && npm test && npm run build:web && npm run check:web",
+    "build:web": "node scripts/build-web.js",
+    "check:web": "node scripts/build-web.js --check"
   },
   "build": {
     "appId": "com.tucci.onemoremove",
     "productName": "One More Move",
     "files": [
-      "app/**/*",
+      "app/index.html",
+      "app/style.css",
+      "app/game.js",
+      "app/touch-controls.js",
+      "app/assets/**/*",
       "main.js",
-      "preload.js"
+      "package.json"
     ],
     "directories": {
-      "output": "dist"
+      "output": "dist/desktop"
     },
     "nsis": {
       "oneClick": false,
@@ -42,12 +45,7 @@
       "icon": "app/assets/icon.png"
     }
   },
-  "dependencies": {
-    "@capacitor/core": "^6.0.0"
-  },
   "devDependencies": {
-    "@capacitor/cli": "^6.0.0",
-    "@capacitor/ios": "^6.0.0",
     "electron": "^30.0.0",
     "electron-builder": "^24.0.0"
   }

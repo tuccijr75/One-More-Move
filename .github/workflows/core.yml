@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - fix/core-stability
+      - feat/omm-2-web-first
   pull_request:
 
 permissions:
@@ -24,3 +25,10 @@ jobs:
 
       - name: Validate source
         run: npm run check
+
+      - name: Upload verified web distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: one-more-move-web
+          path: dist/web/
+          if-no-files-found: error
