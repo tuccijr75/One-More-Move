@@ -940,7 +940,8 @@ const OMMCore = (() => {
     if (gameState.holdSpace) {
       gameState.holdMovesLeft--;
       gameState.holdStepsUsed++;
-      updateHud();
+      if (gameState.holdMovesLeft === 0) endTimeFreeze();
+      else updateHud();
       return true;
     }
 

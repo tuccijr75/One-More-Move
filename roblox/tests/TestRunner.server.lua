@@ -192,7 +192,42 @@ local function testDiagonalCooldown()
 	expect(moved and state.tokens.diag == 0, "diagonal was not available after cooldown")
 end
 
+local function testRejectedPhaseIsAtomic()
+	local state = Simulation.newRun(17, "standard", "TEST", 1)
+	state.player = { x = 5, y = 5 }
+	state.walls = {}
+	state.enemies = {
+		{ id = 0, x = 6, y = 5, stunned = 0, intentX = nil, intentY = nil, intentLock = 0 },
+		{ id = 1, x = 7, y = 5, stunned = 0, intentX = nil, intentY = nil, intentLock = 0 },
+	}
+	state.phaseArmed = true
+	local accepted = Simulation.applyCommand(state, { type = "move", dx = 1, dy = 0 }, 1)
+	expect(not accepted, "occupied phase destination accepted")
+	expect(state.enemies[1].stunned == 0, "rejected phase mutated enemy")
+	expect(state.phaseArmed and not state.phaseUsed and state.turns == 0, "rejected phase mutated run")
+end
+
+local function testTimeFreezeCompletion()
+	local state = Simulation.newRun(18, "standard", "TEST", 1)
+	state.player = { x = 5, y = 5 }
+	state.walls = {}
+	state.enemies = {}
+	state.tokens.timeFreeze = 1
+	expect(Simulation.applyCommand(state, { type = "ability", ability = "time" }, 1), "freeze did not start")
+	expect(Simulation.applyCommand(state, { type = "endTimeFreeze" }, 2), "freeze did not end")
+	expect(state.turns == 0, "zero-step cancellation advanced enemies")
+	state.tokens.timeFreeze = 1
+	state.cooldownUntil = 0
+	expect(Simulation.applyCommand(state, { type = "ability", ability = "time" }, 3), "freeze did not restart")
+	expect(Simulation.applyCommand(state, { type = "move", dx = 1, dy = 0 }, 4), "first step rejected")
+	expect(state.timeFreezeMovesRemaining == 1 and state.turns == 0, "first frozen step finalized early")
+	expect(Simulation.applyCommand(state, { type = "move", dx = 1, dy = 0 }, 5), "second step rejected")
+	expect(state.timeFreezeMovesRemaining == 0 and state.turns == 1, "two-step freeze failed")
+end
+
 local tests = {
+	RejectedPhaseAtomic = testRejectedPhaseIsAtomic,
+	TimeFreezeCompletion = testTimeFreezeCompletion,
 	StunExpiry = testStunExpiry,
 	DiagonalCooldown = testDiagonalCooldown,
 	RngParity = testRngParity,

@@ -341,7 +341,10 @@ local function move(state: State, dx: number, dy: number, now: number): (boolean
 		for _, enemy in state.enemies do
 			if Grid.same(enemy, second) then
 				return false, "phase destination occupied"
-			elseif Grid.same(enemy, first) then
+			end
+		end
+		for _, enemy in state.enemies do
+			if Grid.same(enemy, first) then
 				enemy.stunned = math.max(enemy.stunned, 1)
 			end
 		end
@@ -460,9 +463,12 @@ function Simulation.applyCommand(state: State, command: Command, now: number): (
 		return move(state, command.dx :: number, command.dy :: number, now)
 	elseif command.type == "ability" and typeof(command.ability) == "string" then
 		return activate(state, command.ability :: string, now)
-	elseif command.type == "endTimeFreeze" and state.timeFreezeMovesRemaining > 0 then
+	elseif command.type == "endTimeFreeze" and not state.gameOver and state.timeFreezeMovesRemaining > 0 then
+		local used = state.timeFreezeMovesRemaining < 2
 		state.timeFreezeMovesRemaining = 0
-		resolveEnemyTurn(state)
+		if used then
+			resolveEnemyTurn(state)
+		end
 		return true, nil
 	end
 	return false, "invalid command"

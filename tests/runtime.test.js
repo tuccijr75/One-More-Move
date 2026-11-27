@@ -193,6 +193,29 @@ function wait(ms) {
     await wait(260);
   }
 
+  {
+    api.__ommCommand("new");
+    const state = api.__ommGetState();
+    state.player = { x: 5, y: 5 };
+    state.walls.clear();
+    state.enemies = [];
+    state.tokens.timeFreeze = 1;
+    assert.equal(api.__ommCommand("time-start"), true);
+    assert.equal(api.__ommCommand("time-end"), true);
+    assert.equal(state.turns, 0, "ending Time Freeze before movement must not advance enemies");
+    state.tokens.timeFreeze = 1;
+    state.rewardCooldownUntil = 0;
+    assert.equal(api.__ommCommand("time-start"), true);
+    assert.equal(api.__ommMove(1, 0), true);
+    assert.equal(state.holdMovesLeft, 1);
+    assert.equal(api.__ommMove(1, 0), true);
+    assert.equal(state.holdSpace, false, "engine must end Time Freeze after two accepted moves");
+    assert.equal(api.__ommCommand("time-end"), false, "late release must not double-resolve");
+    await wait(320);
+    assert.equal(state.turns, 1, "two frozen moves must finalize one enemy turn");
+    assert.equal(state.inputLocked, false);
+  }
+
   console.log("One More Move asynchronous runtime tests passed.");
 })().catch((error) => {
   console.error(error);
