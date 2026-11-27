@@ -8,6 +8,8 @@ local folder=script.Parent
 local Tactical=require(folder:WaitForChild("Tactical"))(Grid)
 local Corpus=require(folder:WaitForChild("AiFixtures"))
 local check=require(folder:WaitForChild("TacticalCheck"))
+local Simulation=require(root:WaitForChild("Simulation"))
+local integrate=require(folder:WaitForChild("IntegrationCheck"))
 script:SetAttribute("Result","RUNNING")
 local start=os.clock()
 local ok,result=pcall(check,Grid,Tactical,Legacy,Corpus,function(index,total)
@@ -19,6 +21,15 @@ if not ok then
 	script:SetAttribute("Result","FAIL")
 	error("TACTICAL_FAIL "..tostring(result),0)
 end
+local integrationOk,integration=pcall(integrate,Grid,Simulation,Tactical,Legacy,Corpus,function(index,total)
+	if index%10==0 then task.wait() end
+	if index%50==0 then print(string.format("INTEGRATION_PROGRESS %d/%d",index,total)) end
+end)
+if not integrationOk then
+	script:SetAttribute("Result","FAIL")
+	error("INTEGRATION_FAIL "..tostring(integration),0)
+end
+result.integration=integration
 result.elapsedSeconds=os.clock()-start
 result.runtime="Roblox Studio server"
 script:SetAttribute("Result","PASS")

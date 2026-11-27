@@ -21,6 +21,9 @@
         },
         "AiFixtures": {
           "$path": "../dist/lab/AiFixtures.lua"
+        },
+        "IntegrationCheck": {
+          "$path": "tests/IntegrationCheck.lua"
         }
       }
     }

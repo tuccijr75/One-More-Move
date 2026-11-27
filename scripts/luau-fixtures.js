@@ -7,14 +7,14 @@ const assert=require("node:assert/strict");
 const root=path.resolve(__dirname,"..");
 const out=path.join(root,"dist/lab/luau");
 fs.mkdirSync(out,{recursive:true});
-for(const name of ["Config","Rng","Grid","Ai"]){
+for(const name of ["Config","Rng","Grid","Ai","Simulation"]){
   const src=fs.readFileSync(path.join(root,"roblox/src/shared",name+".lua"),"utf8");
   const imports=[...src.matchAll(/require\(script\.Parent\.([A-Za-z]+)\)/g)];
-  assert.equal(imports.length,["Grid","Ai"].includes(name)?2:0,"unexpected dependency contract "+name);
+  assert.equal(imports.length,name==="Simulation"?4:["Grid","Ai"].includes(name)?2:0,"unexpected dependency contract "+name);
   const cli=src.replace(/require\(script\.Parent\.([A-Za-z]+)\)/g,(_,dep)=>'require("./'+dep+'")');
   assert.equal(cli.replace(/require\("\.\/([A-Za-z]+)"\)/g,(_,dep)=>"require(script.Parent."+dep+")"),src,"non-import source transformation");
   fs.writeFileSync(path.join(out,name+".luau"),cli);
 }
-for(const name of ["Tactical","TacticalCheck","TacticalRunner"])fs.copyFileSync(path.join(root,"roblox/tests",name+".lua"),path.join(out,name+".luau"));
+for(const name of ["Tactical","TacticalCheck","TacticalRunner","IntegrationCheck"])fs.copyFileSync(path.join(root,"roblox/tests",name+".lua"),path.join(out,name+".luau"));
 fs.copyFileSync(path.join(root,"dist/lab/AiFixtures.lua"),path.join(out,"AiFixtures.luau"));
 console.log("Standalone Luau fixture directory generated; shipping sources unchanged.");

@@ -70,3 +70,7 @@ npm run lab:studio
 ```
 
 Alternatively download the OneMoreMove-Tactical-Tests artifact from the successful Roblox Validation workflow. Open OneMoreMoveTactical.rbxlx in Roblox Studio, open the Output panel and select Run (server simulation). Do not publish the place. The test script runs the same 375 fixtures and 1,125 exact decisions plus repeats as the CLI; progress appears periodically. Success is one TACTICAL_PASS JSON receipt and the TacticalStudio script Result attribute PASS. Failure is TACTICAL_FAIL with the exact fixture/field and Result FAIL. Preserve the complete receipt for review. The separate playable place and existing regression test place are unchanged; this test does not route commands through Simulation.
+
+## Simulation qualification interface
+
+Simulation.applyCommand accepts an optional fourth argument, a trusted server-side planner function. Existing server calls omit it and retain Ai.plan. IntegrationCheck.lua injects the candidate only in the isolated qualification harness, comparing fixture-driven movement and ability routing; no client command may select it. CLI output includes INTEGRATION_PASS and Studio TACTICAL_PASS contains an integration receipt. Complete cross-runtime gameplay parity and actual Studio execution remain separate requirements.

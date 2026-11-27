@@ -10,6 +10,7 @@ on:
       - roblox/tests/Tactical.lua
       - roblox/tests/TacticalRunner.lua
       - roblox/tests/TacticalCheck.lua
+      - roblox/tests/IntegrationCheck.lua
       - scripts/lab.js
       - scripts/fixtures-ai.js
       - scripts/luau-fixtures.js

@@ -91,3 +91,7 @@ npm run lab:luau generates dist/lab/luau/ from the frozen fixture corpus and can
 ## Studio tactical check
 
 The CLI and separate Studio test place now consume the same TacticalCheck.lua assertions and candidate. npm run lab:studio creates dist/lab/OneMoreMoveTactical.rbxlx using Rojo 7.6.1 and the generated oracle. The Roblox Validation workflow also builds a downloadable OneMoreMove-Tactical-Tests artifact. Studio execution is manual; its TACTICAL_PASS JSON receipt reports oracle revision, counts, legacy differences by difficulty and elapsed time, not real-time performance. Do not record a Studio pass until the actual receipt is observed.
+
+## Command integration gate
+
+The Luau Tactical Parity workflow now executes IntegrationCheck.lua after the exact planner corpus. The optional trusted server planner parameter is exercised only by tests; production uses its original default. Reports fixture-command count, skips, changed cases, ability dispatch cases and 1,080 default/explicit-legacy command pairs. The isolated Studio place runs the same check and includes its result in TACTICAL_PASS. This is not full game simulation parity.

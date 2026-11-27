@@ -46,6 +46,8 @@ export type State = {
 	cooldownUntil: number,
 }
 
+export type EnemyPlanner = (State) -> { Enemy }
+
 export type Command = {
 	type: string,
 	dx: number?,
@@ -303,14 +305,14 @@ local function hasPlayerEscape(state: State, enemies: PositionSet): boolean
 	return not state.phaseUsed and hasPhaseDestination(state, enemies)
 end
 
-local function resolveEnemyTurn(state: State)
+local function resolveEnemyTurn(state: State, planner: EnemyPlanner?)
 	if state.freezeNext then
 		state.freezeNext = false
 		finalizeTurn(state)
 		return
 	end
 
-	state.enemies = Ai.plan({
+	state.enemies = if planner then planner(state) else Ai.plan({
 		player = state.player,
 		walls = state.walls,
 		enemies = state.enemies,
@@ -353,7 +355,7 @@ local function advanceStage(state: State)
 	end
 end
 
-local function completeMove(state: State)
+local function completeMove(state: State, planner: EnemyPlanner?)
 	if state.portal and Grid.same(state.player, state.portal) then
 		advanceStage(state)
 		return
@@ -361,18 +363,18 @@ local function completeMove(state: State)
 	if state.timeFreezeMovesRemaining > 0 then
 		state.timeFreezeMovesRemaining -= 1
 		if state.timeFreezeMovesRemaining == 0 then
-			resolveEnemyTurn(state)
+			resolveEnemyTurn(state, planner)
 		end
 		return
 	end
-	resolveEnemyTurn(state)
+	resolveEnemyTurn(state, planner)
 end
 
 local function isUnitDirection(value: number): boolean
 	return value == value and value % 1 == 0 and value >= -1 and value <= 1
 end
 
-local function move(state: State, dx: number, dy: number, now: number): (boolean, string?)
+local function move(state: State, dx: number, dy: number, now: number, planner: EnemyPlanner?): (boolean, string?)
 	if state.gameOver then
 		return false, "game over"
 	end
@@ -394,7 +396,7 @@ local function move(state: State, dx: number, dy: number, now: number): (boolean
 		state.phaseUsed = true
 		state.player = second
 		rememberPlayerTile(state, second)
-		completeMove(state)
+		completeMove(state, planner)
 		return true, nil
 	end
 
@@ -437,7 +439,7 @@ local function move(state: State, dx: number, dy: number, now: number): (boolean
 			return true, nil
 		end
 	end
-	completeMove(state)
+	completeMove(state, planner)
 	return true, nil
 end
 
@@ -503,16 +505,17 @@ function Simulation.newRun(seed: number, difficulty: Difficulty, mode: string, r
 	return state
 end
 
-function Simulation.applyCommand(state: State, command: Command, now: number): (boolean, string?)
+-- Optional trusted server-side planner injection for qualification; never a command field.
+function Simulation.applyCommand(state: State, command: Command, now: number, planner: EnemyPlanner?): (boolean, string?)
 	if command.type == "move" and typeof(command.dx) == "number" and typeof(command.dy) == "number" then
-		return move(state, command.dx :: number, command.dy :: number, now)
+		return move(state, command.dx :: number, command.dy :: number, now, planner)
 	elseif command.type == "ability" and typeof(command.ability) == "string" then
 		return activate(state, command.ability :: string, now)
 	elseif command.type == "endTimeFreeze" and not state.gameOver and state.timeFreezeMovesRemaining > 0 then
 		local used = state.timeFreezeMovesRemaining < 2
 		state.timeFreezeMovesRemaining = 0
 		if used then
-			resolveEnemyTurn(state)
+			resolveEnemyTurn(state, planner)
 		end
 		return true, nil
 	end
