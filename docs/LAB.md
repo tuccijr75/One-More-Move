@@ -71,3 +71,7 @@ V3 did not pass the difficulty-gradient criterion. npm run lab:adversarial compa
 ## Actual-turn decision audit
 
 npm run lab:audit writes dist/lab/audit.json and runs in the separate AI Decision Audit workflow. It uses opt-in detached headless traces, 60 runs and up to 1,920 exact observed enemy-planning inputs, including actual portal, ability and stun state. All three candidate decisions are replayed on the same input; source-policy replay must exactly match the original captured output. No policy changes, no default-row schema changes, no promotion. See TACTICS.md for bounds and limitations.
+
+## Independent v4 confirmation
+
+npm run lab:v4heldout writes dist/lab/v4-held-out.json and uses seeds 60001–60100. The standalone Adversarial Confirmation workflow locks planner/simulation sources at be63c381ee44c8b6207cdfb1bf299cafad816369, runs deterministic tests and the legacy equivalence gate, then evaluates 3,000 runs. The artifact includes raw rows, source hashes, matched thresholds and the predeclared descriptive evaluation flags. The console includes v4-v2 tactical threshold bounds, adjacent difficulty bounds and each advancement criterion. Standard/Hard controls now require full row equality in the comparative runner. See TACTICS.md; no gameplay candidate is adopted by this experiment.
