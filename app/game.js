@@ -195,14 +195,16 @@ const OMMCore = (() => {
 
   function setDifficulty(nextDifficulty) {
     if (!isDifficulty(nextDifficulty)) return false;
-    if (state && !state.gameOver) {
-      setStatus(state, "DIFFICULTY CHANGES AFTER RUN", 1200);
-      return false;
-    }
+    if (nextDifficulty === difficulty) return true;
     difficulty = nextDifficulty;
     memoryStore.difficulty = difficulty;
     saveMemoryStore();
-    updateHud();
+    if (state) {
+      const { seed, seedMode } = state;
+      beginRun(seed, seedMode);
+      if (hasDOM) document.getElementById("stage-banner")?.classList.add("hidden");
+      setStatus(state, `${difficulty.toUpperCase()} — NEW RUN`, 1200);
+    }
     return true;
   }
 

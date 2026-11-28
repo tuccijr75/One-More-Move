@@ -256,6 +256,25 @@ function wait(ms) {
     await wait(320);
   }
 
+  {
+    api.__ommCommand("new");
+    const oldState = api.__ommGetState();
+    oldState.walls.clear();
+    oldState.player = { x: 5, y: 5 };
+    oldState.enemies = [{ id: 0, x: 0, y: 0, phase: 0, stunned: 0, intent: null, intentLock: 0 }];
+    assert.equal(api.__ommMove(1, 0), true);
+    assert.equal(oldState.inputLocked, true);
+    assert.equal(api.__ommCommand("difficulty", "hardcore"), true);
+    const next = api.__ommGetState();
+    assert.notEqual(next, oldState);
+    assert.equal(next.seed, oldState.seed);
+    assert.equal(next.difficulty, "hardcore");
+    await wait(320);
+    assert.equal(api.__ommGetState(), next);
+    assert.equal(next.turns, 0);
+    assert.equal(next.inputLocked, false);
+  }
+
   console.log("One More Move asynchronous runtime tests passed.");
 })().catch((error) => {
   console.error(error);

@@ -174,4 +174,27 @@ for (const raw of ["{invalid", "null", "[]"]) {
   assert.equal(state.difficulty, "standard", "blocked localStorage must not prevent boot");
 }
 
+{
+  const { api, state, backing } = bootWithStorage(JSON.stringify({
+    difficulty: "standard", bestScores: { "standard:RUN": 42, "hard:RUN": 17 }
+  }));
+  assert.equal(api.__ommCommand("difficulty", "hard"), true);
+  const next = api.__ommGetState();
+  assert.notEqual(next, state);
+  assert.equal(next.difficulty, "hard");
+  assert.equal(next.seed, state.seed);
+  assert.equal(next.seedMode, state.seedMode);
+  assert.equal(next.turns, 0);
+  assert.equal(next.best, 17);
+  assert.equal(api.__ommCommand("difficulty", "hard"), true);
+  assert.equal(api.__ommGetState(), next);
+  assert.equal(api.__ommCommand("difficulty-next"), true);
+  assert.equal(api.__ommGetState().difficulty, "hardcore");
+  assert.equal(api.__ommCommand("difficulty-next"), true);
+  assert.equal(api.__ommGetState().difficulty, "standard");
+  assert.equal(api.__ommGetState().best, 42);
+  const saved = backing.get("one-more-move-memory-v2");
+  assert.equal(bootWithStorage(saved).state.difficulty, "standard");
+}
+
 console.log("One More Move browser smoke test passed.");
