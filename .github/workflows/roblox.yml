@@ -28,6 +28,7 @@ jobs:
         run: |
           python -m json.tool roblox/default.project.json > /dev/null
           python -m json.tool roblox/test.project.json > /dev/null
+          python -m json.tool roblox/tactical.project.json > /dev/null
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -42,6 +43,25 @@ jobs:
           rojo build roblox/test.project.json --output build/roblox/OneMoreMoveTests.rbxlx
           test -s build/roblox/OneMoreMove.rbxlx
           test -s build/roblox/OneMoreMoveTests.rbxlx
+
+      - name: Setup Node for tactical fixtures
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Generate Studio test-only place
+        run: |
+          npm run lab:fixtures
+          rojo build roblox/tactical.project.json --output build/roblox/OneMoreMoveTactical.rbxlx
+          test -s build/roblox/OneMoreMoveTactical.rbxlx
+
+      - name: Upload Studio tactical test place
+        uses: actions/upload-artifact@v4
+        with:
+          name: OneMoreMove-Tactical-Tests
+          path: build/roblox/OneMoreMoveTactical.rbxlx
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Upload playable place
         uses: actions/upload-artifact@v4

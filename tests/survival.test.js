@@ -1,0 +1,15 @@
+"use strict";
+const assert=require("node:assert/strict");
+const {reachedBounds,matchedThresholds}=require("../scripts/survival");
+const row=(seed,turns,dead)=>({seed,turns,dead,censored:!dead});
+const left=[row(1,30,true),row(2,12,false),row(3,8,true),row(4,40,false)];
+const right=[row(4,40,false),row(3,20,true),row(2,9,true),row(1,31,true)];
+assert.deepEqual(reachedBounds(left,30),{turn:30,runs:4,reached:2,notReached:1,unknown:1,lower:.5,upper:.75});
+assert.deepEqual(reachedBounds(right,30),{turn:30,runs:4,reached:2,notReached:2,unknown:0,lower:.5,upper:.5});
+const result=matchedThresholds(left,right,[30])[0];
+assert.equal(result.deltaLower,-.25);
+assert.equal(result.deltaUpper,0);
+assert.throws(()=>matchedThresholds(left,right.map(r=>({...r,seed:1})),[30]),/Invalid matched sample/);
+assert.throws(()=>reachedBounds([{turns:5,dead:true,censored:true}],30),/Invalid survival observation/);
+assert.throws(()=>reachedBounds([],30),/Invalid threshold/);
+console.log("Censor-aware survival bounds tests passed.");

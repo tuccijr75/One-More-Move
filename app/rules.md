@@ -13,7 +13,7 @@ You will upload this file before prompts; I will treat it as binding requirement
 ### 0.1 Prime directives
 1) **No bloat.** Every line must justify itself in gameplay value, stability, or maintainability.  
 2) **No patches.** If we touch a subsystem, we fix root cause (architecture-level), not symptom-level hacks.  
-3) **Current architecture preserved unless explicitly required.** We keep the single-file `game.js` structure, but we may add internal “modules” as clearly labeled sections.  
+3) **Current architecture preserved unless explicitly required.** The owner-approved 2.0 migration authorizes incremental extraction of canonical modules with behavior-equivalence gates. Preserve the current runtime and avoid duplicate engines.  
 4) **Professional-grade behavior.** Deterministic where it matters, debuggable, testable, cohesive.
 
 ### 0.2 Change discipline
@@ -90,14 +90,11 @@ When I propose edits, I must:
 
 ## 3) Architecture Rules (How We Structure the Code)
 
-### 3.1 Single-file modules (allowed, required for cleanliness)
-Inside `game.js`, we will create clearly labeled sections:
-- `/* GRID UTILS */`
-- `/* AI POLICY */`
-- `/* STAGES & PORTAL */`
+### 3.1 Canonical modules (2.0 migration)
+Retain clearly labeled sections in the runtime until each module is extracted and independently verified. Grid geometry/pathfinding belongs to `app/grid.js`; enemy policy and destination resolution belong to `app/ai.js`; difficulty and tuning belong to `app/config.js`; seeded world generation belongs to `app/generation.js`; movement and Focus abilities belong to `app/movement.js`; stage transitions, completed-turn accounting and scheduled rewards belong to `app/progression.js`; initial state construction belongs to `app/state.js`; persistent preferences and scores belong to `app/storage.js`; browser presentation, input and audio belong to `app/presentation.js` (shared browser and Node sources). Remaining runtime sections include:
 - `/* DEBUG / ASSERTS */`
 
-No external JS dependencies. No bundlers.
+No external JS dependencies. No bundlers. Browser modules load in dependency order; Node uses the same sources. Every extraction must preserve matched-seed benchmark rows, distribution parity and the full regression suite before adoption. This implements the previously approved architecture migration, not a new gameplay rule.
 
 ### 3.2 Settings vs Difficulty separation (hard rule)
 **Difficulty** is player-selected gameplay profile: `standard | hard | hardcore`.

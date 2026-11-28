@@ -1,0 +1,31 @@
+{
+  "name": "OneMoreMoveTactical",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "OneMoreMove": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "TacticalQualification": {
+        "$className": "Folder",
+        "Tactical": {
+          "$path": "tests/Tactical.lua"
+        },
+        "TacticalCheck": {
+          "$path": "tests/TacticalCheck.lua"
+        },
+        "TacticalStudio": {
+          "$path": "tests/TacticalStudio.server.lua"
+        },
+        "AiFixtures": {
+          "$path": "../dist/lab/AiFixtures.lua"
+        },
+        "IntegrationCheck": {
+          "$path": "tests/IntegrationCheck.lua"
+        }
+      }
+    }
+  }
+}

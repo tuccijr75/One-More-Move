@@ -7,11 +7,13 @@ function createWindow() {
     height: 900,
     resizable: true,
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
     },
   });
 
-  win.loadFile("app/web/index.html");
+  win.loadFile(path.join(__dirname, "app", "index.html"));
 }
 
 app.whenReady().then(() => {

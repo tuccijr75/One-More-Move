@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - fix/core-stability
+      - feat/omm-2-web-first
   pull_request:
 
 permissions:
@@ -16,6 +17,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -24,3 +28,23 @@ jobs:
 
       - name: Validate source
         run: npm run check
+
+      - name: Verify refactor against locked benchmark baseline
+        run: npm run refactor:check
+
+      - name: Upload verified web distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: one-more-move-web
+          path: dist/web/
+          if-no-files-found: error
+
+      - name: Run deterministic laboratory smoke matrix
+        run: npm run lab:smoke
+
+      - name: Upload laboratory evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: one-more-move-lab
+          path: dist/lab/results.json
+          if-no-files-found: error

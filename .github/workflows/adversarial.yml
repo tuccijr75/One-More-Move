@@ -1,0 +1,52 @@
+name: Adversarial Confirmation
+
+on:
+  push:
+    branches:
+      - feat/omm-2-web-first
+    paths:
+      - app/ai.js
+      - app/game.js
+      - app/grid.js
+      - app/config.js
+      - app/generation.js
+      - app/movement.js
+      - app/progression.js
+      - app/state.js
+      - app/storage.js
+      - app/presentation.js
+      - scripts/lab.js
+      - scripts/run-tactical.js
+      - scripts/survival.js
+      - .github/workflows/adversarial.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  confirmation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Confirm frozen planner source
+        run: git diff --exit-code be63c381ee44c8b6207cdfb1bf299cafad816369 HEAD -- app/ai.js app/game.js app/grid.js app/config.js app/generation.js app/movement.js app/progression.js app/state.js app/storage.js app/presentation.js scripts/lab.js scripts/survival.js
+      - name: Verify deterministic runtime
+        run: npm test
+      - name: Verify locked legacy behavior
+        run: npm run refactor:check
+      - name: Run independent v4 confirmation
+        run: npm run lab:v4heldout
+      - name: Upload confirmation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: one-more-move-v4-heldout
+          path: dist/lab/v4-held-out.json
+          if-no-files-found: error

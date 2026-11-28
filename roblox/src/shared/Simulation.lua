@@ -46,6 +46,8 @@ export type State = {
 	cooldownUntil: number,
 }
 
+export type EnemyPlanner = (State) -> { Enemy }
+
 export type Command = {
 	type: string,
 	dx: number?,
@@ -249,14 +251,68 @@ local function finalizeTurn(state: State)
 	end
 end
 
-local function resolveEnemyTurn(state: State)
+-- Terminal escape detection is distinct from AI/spawn/revival geometry.
+local function phaseDestination(state: State, dx: number, dy: number, enemies: PositionSet): (Position?, Position?)
+	if math.abs(dx) + math.abs(dy) ~= 1 then
+		return nil, nil
+	end
+	local first = { x = state.player.x + dx, y = state.player.y + dy }
+	local second = { x = first.x + dx, y = first.y + dy }
+	if not Grid.inBounds(first) or not Grid.inBounds(second) or state.walls[Grid.key(first)] or state.walls[Grid.key(second)] or enemies[Grid.key(second)] then
+		return nil, nil
+	end
+	return first, second
+end
+
+local function hasPhaseDestination(state: State, enemies: PositionSet): boolean
+	for _, next in Grid.neighbors(state.player) do
+		local _, second = phaseDestination(state, next.x - state.player.x, next.y - state.player.y, enemies)
+		if second then
+			return true
+		end
+	end
+	return false
+end
+
+local function hasPlayerEscape(state: State, enemies: PositionSet): boolean
+	if state.phaseArmed then
+		return hasPhaseDestination(state, enemies)
+	end
+	if Grid.countEscapes(state.player, state.walls, enemies, state.tokens.diag > 0) > 0 then
+		return true
+	end
+	if state.wallIgnoreArmed or state.tokens.wall > 0 then
+		for _, next in Grid.neighbors(state.player) do
+			local key = Grid.key(next)
+			if Grid.inBounds(next) and not enemies[key] and state.walls[key] then
+				return true
+			end
+		end
+	end
+	if state.wallIgnoreArmed and state.tokens.diag > 0 then
+		local x, y = state.player.x, state.player.y
+		for _, dx in {-1, 1} do
+			for _, dy in {-1, 1} do
+				local destination = { x = x + dx, y = y + dy }
+				if Grid.inBounds(destination) and not enemies[Grid.key(destination)]
+					and not state.walls[Grid.key({ x = x + dx, y = y })]
+					and not state.walls[Grid.key({ x = x, y = y + dy })] then
+					return true
+				end
+			end
+		end
+	end
+	return not state.phaseUsed and hasPhaseDestination(state, enemies)
+end
+
+local function resolveEnemyTurn(state: State, planner: EnemyPlanner?)
 	if state.freezeNext then
 		state.freezeNext = false
 		finalizeTurn(state)
 		return
 	end
 
-	state.enemies = Ai.plan({
+	state.enemies = if planner then planner(state) else Ai.plan({
 		player = state.player,
 		walls = state.walls,
 		enemies = state.enemies,
@@ -272,7 +328,7 @@ local function resolveEnemyTurn(state: State)
 		end
 	end
 	local enemies = Grid.enemySet(state.enemies)
-	if Grid.countEscapes(state.player, state.walls, enemies, state.tokens.diag > 0) == 0 then
+	if not hasPlayerEscape(state, enemies) then
 		if handleDeath(state, "No escape.") then
 			return
 		end
@@ -287,9 +343,10 @@ local function advanceStage(state: State)
 	if state.stage % Config.WallAddEveryStages == 0 then
 		state.wallCount = math.min(Config.WallMaximum, state.wallCount + 1)
 	end
-	local outgoingEnemies = state.enemies
-	state.walls = Grid.buildWalls(state.rng, state.player, outgoingEnemies, nil, state.wallCount, state.walls)
+	-- Match canonical stage regeneration: outgoing enemies do not constrain
+	-- new wall placement or alter the seeded random draw sequence.
 	state.enemies = {}
+	state.walls = Grid.buildWalls(state.rng, state.player, state.enemies, nil, state.wallCount, state.walls)
 	for _ = 1, enemyCountForStage(state.stage) do
 		spawnEnemy(state)
 	end
@@ -299,7 +356,7 @@ local function advanceStage(state: State)
 	end
 end
 
-local function completeMove(state: State)
+local function completeMove(state: State, planner: EnemyPlanner?)
 	if state.portal and Grid.same(state.player, state.portal) then
 		advanceStage(state)
 		return
@@ -307,18 +364,18 @@ local function completeMove(state: State)
 	if state.timeFreezeMovesRemaining > 0 then
 		state.timeFreezeMovesRemaining -= 1
 		if state.timeFreezeMovesRemaining == 0 then
-			resolveEnemyTurn(state)
+			resolveEnemyTurn(state, planner)
 		end
 		return
 	end
-	resolveEnemyTurn(state)
+	resolveEnemyTurn(state, planner)
 end
 
 local function isUnitDirection(value: number): boolean
 	return value == value and value % 1 == 0 and value >= -1 and value <= 1
 end
 
-local function move(state: State, dx: number, dy: number, now: number): (boolean, string?)
+local function move(state: State, dx: number, dy: number, now: number, planner: EnemyPlanner?): (boolean, string?)
 	if state.gameOver then
 		return false, "game over"
 	end
@@ -327,21 +384,12 @@ local function move(state: State, dx: number, dy: number, now: number): (boolean
 	end
 
 	if state.phaseArmed then
-		if dx ~= 0 and dy ~= 0 then
-			return false, "phase requires cardinal movement"
-		end
-		local first = { x = state.player.x + dx, y = state.player.y + dy }
-		local second = { x = first.x + dx, y = first.y + dy }
-		if not Grid.inBounds(first) or not Grid.inBounds(second) then
-			return false, "phase out of bounds"
-		end
-		if state.walls[Grid.key(first)] or state.walls[Grid.key(second)] then
+		local first, second = phaseDestination(state, dx, dy, Grid.enemySet(state.enemies))
+		if not first or not second then
 			return false, "phase blocked"
 		end
 		for _, enemy in state.enemies do
-			if Grid.same(enemy, second) then
-				return false, "phase destination occupied"
-			elseif Grid.same(enemy, first) then
+			if Grid.same(enemy, first) then
 				enemy.stunned = math.max(enemy.stunned, 1)
 			end
 		end
@@ -349,13 +397,16 @@ local function move(state: State, dx: number, dy: number, now: number): (boolean
 		state.phaseUsed = true
 		state.player = second
 		rememberPlayerTile(state, second)
-		completeMove(state)
+		completeMove(state, planner)
 		return true, nil
 	end
 
 	local diagonal = dx ~= 0 and dy ~= 0
 	if diagonal and state.tokens.diag <= 0 then
 		return false, "diagonal unavailable"
+	end
+	if diagonal and now < state.cooldownUntil then
+		return false, "ability cooldown"
 	end
 	local destination = { x = state.player.x + dx, y = state.player.y + dy }
 	if not Grid.inBounds(destination) then
@@ -389,7 +440,7 @@ local function move(state: State, dx: number, dy: number, now: number): (boolean
 			return true, nil
 		end
 	end
-	completeMove(state)
+	completeMove(state, planner)
 	return true, nil
 end
 
@@ -404,6 +455,9 @@ local function activate(state: State, ability: string, now: number): (boolean, s
 		state.tokens.freeze = 0
 		state.freezeNext = true
 	elseif ability == "phase" and not state.phaseUsed and not state.phaseArmed then
+		if not hasPhaseDestination(state, Grid.enemySet(state.enemies)) then
+			return false, "no phase route"
+		end
 		state.phaseArmed = true
 	elseif ability == "time" and state.tokens.timeFreeze > 0 and state.timeFreezeMovesRemaining == 0 then
 		state.tokens.timeFreeze = 0
@@ -452,14 +506,18 @@ function Simulation.newRun(seed: number, difficulty: Difficulty, mode: string, r
 	return state
 end
 
-function Simulation.applyCommand(state: State, command: Command, now: number): (boolean, string?)
+-- Optional trusted server-side planner injection for qualification; never a command field.
+function Simulation.applyCommand(state: State, command: Command, now: number, planner: EnemyPlanner?): (boolean, string?)
 	if command.type == "move" and typeof(command.dx) == "number" and typeof(command.dy) == "number" then
-		return move(state, command.dx :: number, command.dy :: number, now)
+		return move(state, command.dx :: number, command.dy :: number, now, planner)
 	elseif command.type == "ability" and typeof(command.ability) == "string" then
 		return activate(state, command.ability :: string, now)
-	elseif command.type == "endTimeFreeze" and state.timeFreezeMovesRemaining > 0 then
+	elseif command.type == "endTimeFreeze" and not state.gameOver and state.timeFreezeMovesRemaining > 0 then
+		local used = state.timeFreezeMovesRemaining < 2
 		state.timeFreezeMovesRemaining = 0
-		resolveEnemyTurn(state)
+		if used then
+			resolveEnemyTurn(state, planner)
+		end
 		return true, nil
 	end
 	return false, "invalid command"

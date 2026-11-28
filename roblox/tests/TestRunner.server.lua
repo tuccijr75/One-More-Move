@@ -161,7 +161,101 @@ local function testCollisionStress()
 	end
 end
 
+local function testStunExpiry()
+	local view = {
+		player = { x = 5, y = 5 },
+		walls = {},
+		enemies = {{ id = 0, x = 5, y = 4, stunned = 1, intentX = nil, intentY = nil, intentLock = 0 }},
+		difficulty = "standard",
+		allowDiagonalEscape = false,
+	}
+	local first = Ai.plan(view)
+	expect(first[1].stunned == 0 and first[1].y == 4, "stun did not expire after stationary turn")
+	local next = Ai.plan({
+		player = view.player, walls = view.walls, enemies = first,
+		difficulty = "standard", allowDiagonalEscape = false,
+	})
+	expect(next[1].y == 5, "enemy did not resume pursuit")
+end
+
+local function testDiagonalCooldown()
+	local state = Simulation.newRun(15, "standard", "TEST", 1)
+	state.player = { x = 5, y = 5 }
+	state.walls = {}
+	state.enemies = {}
+	state.tokens.diag = 1
+	state.cooldownUntil = 31
+	local accepted = Simulation.applyCommand(state, { type = "move", dx = 1, dy = 1 }, 1)
+	expect(not accepted, "diagonal bypassed global cooldown")
+	expect(state.tokens.diag == 1 and state.cooldownUntil == 31, "rejected diagonal changed reward or cooldown")
+	local moved = Simulation.applyCommand(state, { type = "move", dx = 1, dy = 1 }, 31)
+	expect(moved and state.tokens.diag == 0, "diagonal was not available after cooldown")
+end
+
+local function testRejectedPhaseIsAtomic()
+	local state = Simulation.newRun(17, "standard", "TEST", 1)
+	state.player = { x = 5, y = 5 }
+	state.walls = {}
+	state.enemies = {
+		{ id = 0, x = 6, y = 5, stunned = 0, intentX = nil, intentY = nil, intentLock = 0 },
+		{ id = 1, x = 7, y = 5, stunned = 0, intentX = nil, intentY = nil, intentLock = 0 },
+	}
+	state.phaseArmed = true
+	local accepted = Simulation.applyCommand(state, { type = "move", dx = 1, dy = 0 }, 1)
+	expect(not accepted, "occupied phase destination accepted")
+	expect(state.enemies[1].stunned == 0, "rejected phase mutated enemy")
+	expect(state.phaseArmed and not state.phaseUsed and state.turns == 0, "rejected phase mutated run")
+end
+
+local function testTimeFreezeCompletion()
+	local state = Simulation.newRun(18, "standard", "TEST", 1)
+	state.player = { x = 5, y = 5 }
+	state.walls = {}
+	state.enemies = {}
+	state.tokens.timeFreeze = 1
+	expect(Simulation.applyCommand(state, { type = "ability", ability = "time" }, 1), "freeze did not start")
+	expect(Simulation.applyCommand(state, { type = "endTimeFreeze" }, 2), "freeze did not end")
+	expect(state.turns == 0, "zero-step cancellation advanced enemies")
+	state.tokens.timeFreeze = 1
+	state.cooldownUntil = 0
+	expect(Simulation.applyCommand(state, { type = "ability", ability = "time" }, 3), "freeze did not restart")
+	expect(Simulation.applyCommand(state, { type = "move", dx = 1, dy = 0 }, 4), "first step rejected")
+	expect(state.timeFreezeMovesRemaining == 1 and state.turns == 0, "first frozen step finalized early")
+	expect(Simulation.applyCommand(state, { type = "move", dx = 1, dy = 0 }, 5), "second step rejected")
+	expect(state.timeFreezeMovesRemaining == 0 and state.turns == 1, "two-step freeze failed")
+end
+
+local function testAbilityEscape()
+	local state = Simulation.newRun(19, "standard", "TEST", 1)
+	state.player = { x = 5, y = 5 }
+	state.walls = { ["5,5"] = true, ["7,5"] = true, ["6,4"] = true, ["6,6"] = true }
+	state.enemies = {}
+	state.phaseUsed = true
+	state.tokens.wall = 1
+	expect(Simulation.applyCommand(state, { type = "move", dx = 1, dy = 0 }, 1), "escape fixture move rejected")
+	expect(not state.gameOver and state.turns == 1, "stored Wall Ignore did not prevent false no-escape death")
+	expect(Simulation.applyCommand(state, { type = "ability", ability = "wall" }, 2), "Wall Ignore rejected")
+	expect(Simulation.applyCommand(state, { type = "move", dx = 1, dy = 0 }, 3), "wall escape rejected")
+	expect(not state.wallIgnoreArmed, "wall escape did not consume armed reward")
+end
+
+local function testPhaseArmingSafety()
+	local state = Simulation.newRun(20, "standard", "TEST", 1)
+	state.player = { x = 0, y = 0 }
+	state.walls = { ["2,0"] = true, ["0,2"] = true }
+	state.enemies = {}
+	local accepted = Simulation.applyCommand(state, { type = "ability", ability = "phase" }, 1)
+	expect(not accepted and not state.phaseArmed and state.cooldownUntil == 0, "unusable Phase Step was armed")
+	expect(Simulation.applyCommand(state, { type = "move", dx = 1, dy = 0 }, 2), "ordinary move blocked after rejected arming")
+end
+
 local tests = {
+	AbilityEscape = testAbilityEscape,
+	PhaseArmingSafety = testPhaseArmingSafety,
+	RejectedPhaseAtomic = testRejectedPhaseIsAtomic,
+	TimeFreezeCompletion = testTimeFreezeCompletion,
+	StunExpiry = testStunExpiry,
+	DiagonalCooldown = testDiagonalCooldown,
 	RngParity = testRngParity,
 	SeedDeterminism = testSeedDeterminism,
 	KillPriority = testKillPriority,

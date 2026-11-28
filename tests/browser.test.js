@@ -100,11 +100,101 @@ const context = {
 };
 
 vm.createContext(context);
+const gridSource = fs.readFileSync(require.resolve("../app/grid.js"), "utf8");
+const aiSource = fs.readFileSync(require.resolve("../app/ai.js"), "utf8");
+const configSource = fs.readFileSync(require.resolve("../app/config.js"), "utf8");
+const generationSource = fs.readFileSync(require.resolve("../app/generation.js"), "utf8");
+const movementSource = fs.readFileSync(require.resolve("../app/movement.js"), "utf8");
+const progressionSource = fs.readFileSync(require.resolve("../app/progression.js"), "utf8");
+const stateSource = fs.readFileSync(require.resolve("../app/state.js"), "utf8");
+const storageSource = fs.readFileSync(require.resolve("../app/storage.js"), "utf8");
+const presentationSource = fs.readFileSync(require.resolve("../app/presentation.js"), "utf8");
+vm.runInContext(gridSource, context);
+vm.runInContext(aiSource, context);
+vm.runInContext(configSource, context);
+vm.runInContext(generationSource, context);
+vm.runInContext(movementSource, context);
+vm.runInContext(progressionSource, context);
+vm.runInContext(stateSource, context);
+vm.runInContext(storageSource, context);
+vm.runInContext(presentationSource, context);
 vm.runInContext(fs.readFileSync(require.resolve("../app/game.js"), "utf8"), context);
 
 assert.equal(typeof windowObject.__ommGetState, "function", "browser boot must expose state access");
 assert.equal(typeof windowObject.__ommMove, "function", "browser boot must expose movement");
 assert.equal(typeof windowObject.__ommCommand, "function", "browser boot must expose commands");
 assert.equal(windowObject.__ommGetState().seed, 1234, "browser boot must create the initial run");
+
+// Isolate each boot to verify recovery without leaking globals between runs.
+const source = fs.readFileSync(require.resolve("../app/game.js"), "utf8");
+function bootWithStorage(raw, inaccessible = false) {
+  const backing = new Map([["one-more-move-memory-v2", raw]]);
+  const browser = {
+    ...windowObject,
+    localStorage: {
+      getItem(key) { if (inaccessible) throw new Error("Storage blocked"); return backing.get(key) ?? null; },
+      setItem(key, value) { if (inaccessible) throw new Error("Storage blocked"); backing.set(key, value); },
+    },
+  };
+  const sandbox = vm.createContext({ ...context, window: browser });
+  vm.runInContext(gridSource, sandbox);
+  vm.runInContext(aiSource, sandbox);
+  vm.runInContext(configSource, sandbox);
+  vm.runInContext(generationSource, sandbox);
+  vm.runInContext(movementSource, sandbox);
+  vm.runInContext(progressionSource, sandbox);
+  vm.runInContext(stateSource, sandbox);
+  vm.runInContext(storageSource, sandbox);
+  vm.runInContext(presentationSource, sandbox);
+  vm.runInContext(source, sandbox);
+  return { api: browser, state: browser.__ommGetState(), backing };
+}
+{
+  const { api, state } = bootWithStorage(JSON.stringify({
+    difficulty: "constructor", settings: [], bestScores: { "standard:RUN": "not-a-score" }, muted: "false"
+  }));
+  assert.equal(state.difficulty, "standard", "inherited object names are not difficulty profiles");
+  assert.equal(state.best, 0, "corrupt best score must fall back to zero");
+  assert.equal(api.__ommCommand("difficulty", "toString"), false, "invalid difficulty command rejected");
+}
+{
+  const { state } = bootWithStorage(JSON.stringify({
+    difficulty: "hard", settings: {}, bestScores: { "hard:RUN": "42", "hard:NEW": -5 }
+  }));
+  assert.equal(state.difficulty, "hard");
+  assert.equal(state.best, 42, "valid legacy numeric score is preserved");
+}
+for (const raw of ["{invalid", "null", "[]"]) {
+  const { state } = bootWithStorage(raw);
+  assert.equal(state.difficulty, "standard");
+  assert.equal(state.best, 0);
+}
+{
+  const { state } = bootWithStorage(null, true);
+  assert.equal(state.difficulty, "standard", "blocked localStorage must not prevent boot");
+}
+
+{
+  const { api, state, backing } = bootWithStorage(JSON.stringify({
+    difficulty: "standard", bestScores: { "standard:RUN": 42, "hard:RUN": 17 }
+  }));
+  assert.equal(api.__ommCommand("difficulty", "hard"), true);
+  const next = api.__ommGetState();
+  assert.notEqual(next, state);
+  assert.equal(next.difficulty, "hard");
+  assert.equal(next.seed, state.seed);
+  assert.equal(next.seedMode, state.seedMode);
+  assert.equal(next.turns, 0);
+  assert.equal(next.best, 17);
+  assert.equal(api.__ommCommand("difficulty", "hard"), true);
+  assert.equal(api.__ommGetState(), next);
+  assert.equal(api.__ommCommand("difficulty-next"), true);
+  assert.equal(api.__ommGetState().difficulty, "hardcore");
+  assert.equal(api.__ommCommand("difficulty-next"), true);
+  assert.equal(api.__ommGetState().difficulty, "standard");
+  assert.equal(api.__ommGetState().best, 42);
+  const saved = backing.get("one-more-move-memory-v2");
+  assert.equal(bootWithStorage(saved).state.difficulty, "standard");
+}
 
 console.log("One More Move browser smoke test passed.");

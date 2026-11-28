@@ -88,6 +88,15 @@ function createBrowser() {
     clearTimeout,
   };
   vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(require.resolve("../app/grid.js"), "utf8"), sandbox);
+  vm.runInContext(fs.readFileSync(require.resolve("../app/ai.js"), "utf8"), sandbox);
+  vm.runInContext(fs.readFileSync(require.resolve("../app/config.js"), "utf8"), sandbox);
+  vm.runInContext(fs.readFileSync(require.resolve("../app/generation.js"), "utf8"), sandbox);
+  vm.runInContext(fs.readFileSync(require.resolve("../app/movement.js"), "utf8"), sandbox);
+  vm.runInContext(fs.readFileSync(require.resolve("../app/progression.js"), "utf8"), sandbox);
+  vm.runInContext(fs.readFileSync(require.resolve("../app/state.js"), "utf8"), sandbox);
+  vm.runInContext(fs.readFileSync(require.resolve("../app/storage.js"), "utf8"), sandbox);
+  vm.runInContext(fs.readFileSync(require.resolve("../app/presentation.js"), "utf8"), sandbox);
   vm.runInContext(fs.readFileSync(require.resolve("../app/game.js"), "utf8"), sandbox);
   return { window: windowObject };
 }
@@ -170,6 +179,100 @@ function wait(ms) {
     assert.equal(state.stage, 2, "entering a portal must advance the stage");
     assert.ok(state.nextSpawnTurn > state.turns, "stage spawn pacing must reset relative to current turns");
     assert.equal(state.portal, null, "portal must clear on stage advance");
+  }
+
+  {
+    api.__ommCommand("new");
+    const state = api.__ommGetState();
+    state.player = { x: 5, y: 5 };
+    state.walls.clear();
+    state.enemies = [];
+    state.tokens.diag = 1;
+    state.rewardCooldownUntil = Date.now() + 30000;
+    const cooldown = state.rewardCooldownUntil;
+    assert.equal(api.__ommMove(1, 1), false, "global cooldown must block diagonal reward");
+    assert.equal(state.tokens.diag, 1, "blocked diagonal must preserve reward");
+    assert.equal(state.rewardCooldownUntil, cooldown, "blocked diagonal must preserve cooldown");
+    assert.equal(api.__ommMove(2, 0), false, "multi-tile input must not bypass movement rules");
+    assert.equal(state.player.x, 5);
+    assert.equal(state.player.y, 5);
+    state.rewardCooldownUntil = 0;
+    assert.equal(api.__ommMove(1, 1), true, "diagonal must work when cooldown has expired");
+    assert.equal(state.tokens.diag, 0);
+    await wait(260);
+  }
+
+  {
+    api.__ommCommand("new");
+    const state = api.__ommGetState();
+    state.player = { x: 5, y: 5 };
+    state.walls.clear();
+    state.enemies = [];
+    state.tokens.timeFreeze = 1;
+    assert.equal(api.__ommCommand("time-start"), true);
+    assert.equal(api.__ommCommand("time-end"), true);
+    assert.equal(state.turns, 0, "ending Time Freeze before movement must not advance enemies");
+    state.tokens.timeFreeze = 1;
+    state.rewardCooldownUntil = 0;
+    assert.equal(api.__ommCommand("time-start"), true);
+    assert.equal(api.__ommMove(1, 0), true);
+    assert.equal(state.holdMovesLeft, 1);
+    assert.equal(api.__ommMove(1, 0), true);
+    assert.equal(state.holdSpace, false, "engine must end Time Freeze after two accepted moves");
+    assert.equal(api.__ommCommand("time-end"), false, "late release must not double-resolve");
+    await wait(320);
+    assert.equal(state.turns, 1, "two frozen moves must finalize one enemy turn");
+    assert.equal(state.inputLocked, false);
+  }
+
+  {
+    api.__ommCommand("new");
+    const state = api.__ommGetState();
+    state.player = { x: 5, y: 5 };
+    state.walls = new Set(["5,5", "7,5", "6,4", "6,6"]);
+    state.enemies = [];
+    state.phaseUsed = true;
+    state.tokens.wall = 1;
+    assert.equal(api.__ommMove(1, 0), true);
+    await wait(320);
+    assert.equal(state.gameOver, false, "Wall Ignore can rescue an otherwise enclosed player");
+    assert.equal(state.turns, 1);
+    assert.equal(api.__ommCommand("wall"), true);
+    assert.equal(api.__ommMove(1, 0), true);
+    await wait(320);
+    assert.equal(state.wallIgnoreArmed, false);
+  }
+
+  {
+    api.__ommCommand("new");
+    const state = api.__ommGetState();
+    state.player = { x: 0, y: 0 };
+    state.walls = new Set(["2,0", "0,2"]);
+    state.enemies = [];
+    assert.equal(api.__ommCommand("phase"), false, "must not arm Phase Step with no legal destination");
+    assert.equal(state.phaseArmed, false);
+    assert.equal(state.rewardCooldownUntil, 0, "rejected arming must not consume cooldown");
+    assert.equal(api.__ommMove(1, 0), true, "ordinary movement remains possible");
+    await wait(320);
+  }
+
+  {
+    api.__ommCommand("new");
+    const oldState = api.__ommGetState();
+    oldState.walls.clear();
+    oldState.player = { x: 5, y: 5 };
+    oldState.enemies = [{ id: 0, x: 0, y: 0, phase: 0, stunned: 0, intent: null, intentLock: 0 }];
+    assert.equal(api.__ommMove(1, 0), true);
+    assert.equal(oldState.inputLocked, true);
+    assert.equal(api.__ommCommand("difficulty", "hardcore"), true);
+    const next = api.__ommGetState();
+    assert.notEqual(next, oldState);
+    assert.equal(next.seed, oldState.seed);
+    assert.equal(next.difficulty, "hardcore");
+    await wait(320);
+    assert.equal(api.__ommGetState(), next);
+    assert.equal(next.turns, 0);
+    assert.equal(next.inputLocked, false);
   }
 
   console.log("One More Move asynchronous runtime tests passed.");
